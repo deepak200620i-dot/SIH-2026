@@ -20,13 +20,20 @@ video:
   source: "data/videos/test.mp4"      # MP4 path or RTSP URL
   max_fps: 30                         # Cap playback/processing FPS
 
-# Virtual fence zones (Step 2 — placeholder)
+# Tracking (Step 2)
+tracking:
+  tracker: "bytetrack.yaml"           # ByteTrack config (built into Ultralytics)
+
+# Virtual fence zones (Step 2)
 fence:
-  zones: []
-  # Example zone:
-  # - name: "restricted_area_1"
-  #   polygon: [[100,200], [400,200], [400,500], [100,500]]
-  #   severity: "high"
+  cooldown_seconds: 30                # Min gap between duplicate alerts per track+zone
+  zones:
+    - name: "restricted_area_1"
+      polygon: [[100,200], [400,200], [400,500], [100,500]]
+      severity: "high"
+    - name: "perimeter_zone"
+      polygon: [[50,50], [600,50], [600,100], [50,100]]
+      severity: "critical"
 
 # Face recognition (Step 3 — placeholder)
 face:
