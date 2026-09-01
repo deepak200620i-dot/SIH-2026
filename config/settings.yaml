@@ -1,0 +1,39 @@
+# ==============================================================
+# IBVAP — Global Configuration
+# ==============================================================
+
+detection:
+  model_path: "models/yolo26n.pt"    # Relative to project root
+  confidence: 0.35                    # Min confidence threshold
+  iou_threshold: 0.45                 # NMS IoU threshold
+  target_classes:                     # COCO classes to keep
+    - person
+    - car
+    - truck
+    - bus
+    - motorcycle
+    - bicycle
+  device: ""                          # "" = auto (CUDA if available, else CPU)
+  img_size: 640                       # Inference input size
+
+video:
+  source: "data/videos/test.mp4"      # MP4 path or RTSP URL
+  max_fps: 30                         # Cap playback/processing FPS
+
+# Virtual fence zones (Step 2 — placeholder)
+fence:
+  zones: []
+  # Example zone:
+  # - name: "restricted_area_1"
+  #   polygon: [[100,200], [400,200], [400,500], [100,500]]
+  #   severity: "high"
+
+# Face recognition (Step 3 — placeholder)
+face:
+  gallery_path: "data/faces"
+  similarity_threshold: 0.6
+
+# Event engine (Step 4 — placeholder)
+events:
+  cooldown_seconds: 30                # Min gap between duplicate alerts
+  evidence_path: "data/evidence"
