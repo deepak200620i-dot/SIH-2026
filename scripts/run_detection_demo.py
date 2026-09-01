@@ -135,7 +135,11 @@ def run_demo(
         cap.release()
         if writer:
             writer.release()
-        cv2.destroyAllWindows()
+        try:
+            cv2.destroyAllWindows()
+        except cv2.error:
+            # OpenCV compiled without GUI support on this system
+            pass
 
     # ── Summary ──────────────────────────────────────────────────────────
     avg_fps = sum(fps_samples) / len(fps_samples) if fps_samples else 0
