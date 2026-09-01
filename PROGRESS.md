@@ -3,13 +3,13 @@
 
 ---
 
-## Current Status: 🟢 Step 2 Complete — Ready for Step 3
+## Current Status: 🟢 Step 3 Complete — Ready for Step 4
 
 | Step | Status | Description |
 |---|---|---|
 | Step 1 | ✅ **Complete** | YOLO26n detection module |
 | Step 2 | ✅ **Complete** | Tracking + virtual fence |
-| Step 3 | ⬜ Not started | Face detection + recognition |
+| Step 3 | ✅ **Complete** | Face detection + recognition |
 | Step 4 | ⬜ Not started | FastAPI + SQLite + event engine |
 | Step 5 | ⬜ Not started | React dashboard |
 | Step 6 | ⬜ Not started | ANPR + loitering + integration |
@@ -162,12 +162,108 @@ python scripts/run_tracking_demo.py --video path/to/video.mp4 --save
 
 ---
 
-## Future Steps (not started)
+## ✅ Step 3: Face Detection + Recognition — COMPLETE
 
-### Step 3: Face Detection + Recognition
-- InsightFace ArcFace pipeline
-- Known-face gallery in `data/faces/<name>/`
-- Runs on person crops from YOLO detections
+**Date completed:** 2026-09-01
+
+### What was built
+
+| File | Purpose |
+|---|---|
+| `src/face/recognizer.py` | **Core module** — InsightFace (ArcFace) face detection + recognition |
+| `src/face/__init__.py` | Package exports (`FaceRecognizer`, `FaceMatch`, `GalleryEntry`) |
+| `tests/test_face_recognizer.py` | 38 unit tests (fully mocked, no model download needed) |
+| `scripts/run_face_demo.py` | Visual demo: tracking + fence + face recognition combined |
+| `config/settings.yaml` | Updated `face:` section with full InsightFace config |
+| `requirements.txt` | Added `insightface>=0.7.3` + `onnxruntime>=1.17` |
+
+### Key components in `recognizer.py`
+
+- **`FaceMatch` dataclass** — Recognition result per detected face:
+  - `face_bbox` (x1, y1, x2, y2) — face box in original frame coordinates
+  - `person_bbox` — YOLO person bounding box
+  - `person_track_id` — ByteTrack ID (-1 if untracked)
+  - `name` — matched person name or "unknown"
+  - `confidence` — cosine similarity score (0-1)
+  - `is_known` — True if matched above threshold
+  - `det_score` — face detection confidence
+  - `embedding` — 512-d ArcFace embedding (optional, for storage)
+  - Computed property: `face_center`
+
+- **`GalleryEntry` dataclass** — Known person in gallery:
+  - `name`, `embeddings` (list of 512-d vectors), `image_count`
+  - Computed property: `mean_embedding` (L2-normalised mean)
+
+- **`FaceRecognizer` class** — Main interface:
+  - `__init__(config)` — loads InsightFace model + scans gallery folder
+  - `recognize(frame, person_bbox, track_id)` → `FaceMatch | None`
+  - `recognize_frame(frame, tracked_objects)` → `list[FaceMatch]`
+  - `add_face_embedding(name, embedding)` — add to gallery programmatically
+  - `gallery_size`, `gallery_names` — gallery introspection properties
+  - `draw_face_matches(frame, matches)` — static method, green for known / red for unknown
+
+### Pipeline flow
+```
+For each frame:
+  YOLO detect → ByteTrack track → for each person:
+    → crop person region from frame
+    → InsightFace detect face in crop
+    → extract 512-d ArcFace embedding
+    → cosine similarity match against gallery
+    → FaceMatch result (known name or "unknown")
+```
+
+### Gallery structure
+```
+data/faces/
+├── john_doe/
+│   ├── 01.jpg
+│   └── 02.jpg
+├── jane_smith/
+│   └── 01.jpg
+└── .gitkeep
+```
+Each subfolder = one person. On startup, all images are processed to extract face embeddings.
+
+### Test results
+```
+tests/test_face_recognizer.py — 38 passed ✅
+Full suite (all 4 files)      — 85 passed in 3.50s ✅
+```
+
+### How to run
+```bash
+# Run face recognition unit tests
+python -m pytest tests/test_face_recognizer.py -v
+
+# Run ALL tests (Step 1 + 2 + 3)
+python -m pytest tests/ -v
+
+# Run face recognition demo
+python scripts/run_face_demo.py --video path/to/video.mp4
+
+# With custom gallery and threshold
+python scripts/run_face_demo.py --video path/to/video.mp4 --gallery data/faces --threshold 0.5
+
+# Save annotated output
+python scripts/run_face_demo.py --video path/to/video.mp4 --save
+```
+
+### Design decisions made
+1. **InsightFace `buffalo_l` model pack** — includes RetinaFace detector + ArcFace recognizer, pretrained, no training needed
+2. **Lazy import** — `from insightface.app import FaceAnalysis` inside `_load_model()` to avoid import errors when just running tests
+3. **Gallery loads on startup** — scans `data/faces/` subfolders, extracts embeddings, stores in memory
+4. **Largest face in gallery images** — when a reference image has multiple faces, takes the largest one
+5. **Most confident face in crops** — when a person crop has multiple faces, takes the highest `det_score`
+6. **Cosine similarity via dot product** — embeddings are L2-normalised, so `np.dot(a, b)` = cosine similarity
+7. **Fully mocked tests** — all 38 tests use mock InsightFace objects, run in 0.30s without model downloads
+8. **Frame coordinate conversion** — face bbox detected in crop coordinates is converted to original frame coordinates
+9. **CPU by default** — `gpu_id: -1` in config; set to `0+` for CUDA acceleration
+10. **Person-only processing** — `recognize_frame()` skips non-person tracked objects (cars, trucks, etc.)
+
+---
+
+## Future Steps (not started)
 
 ### Step 4: FastAPI + SQLite + Event Engine
 - REST API, WebSocket, SQLite database

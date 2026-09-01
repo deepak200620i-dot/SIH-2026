@@ -35,10 +35,14 @@ fence:
       polygon: [[50,50], [600,50], [600,100], [50,100]]
       severity: "critical"
 
-# Face recognition (Step 3 — placeholder)
+# Face recognition (Step 3)
 face:
-  gallery_path: "data/faces"
-  similarity_threshold: 0.6
+  gallery_path: "data/faces"           # Each subfolder = one person (e.g. data/faces/john_doe/)
+  similarity_threshold: 0.6            # Cosine similarity threshold for a "known" match
+  model_name: "buffalo_l"              # InsightFace model pack (buffalo_l = ArcFace + RetinaFace)
+  det_size: [640, 640]                 # Face detection input size
+  gpu_id: -1                           # -1 = CPU only, 0+ = CUDA GPU index
+  min_face_size: 20                    # Skip person crops smaller than this (pixels)
 
 # Event engine (Step 4 — placeholder)
 events:
