@@ -1,0 +1,149 @@
+"""
+IBVAP — Unit tests for FastAPI REST Endpoints & WebSocket
+=========================================================
+Tests health check, GET/POST events, stats, camera operations, fence config, and WebSocket streaming.
+
+Run:
+    python -m pytest tests/test_api.py -v
+"""
+
+from __future__ import annotations
+
+import os
+import shutil
+import tempfile
+import pytest
+from fastapi.testclient import TestClient
+
+from src.api.main import app
+from src.db.database import get_db, init_db
+
+
+@pytest.fixture
+def temp_api_db():
+    tmp_dir = tempfile.mkdtemp()
+    db_path = os.path.join(tmp_dir, "test_api_ibvap.db")
+
+    # Import inside fixture to run event loop async init
+    import asyncio
+    asyncio.run(init_db(db_path))
+
+    async def _override_get_db():
+        from src.db.database import get_db_connection
+        db = await get_db_connection(db_path)
+        try:
+            yield db
+        finally:
+            await db.close()
+
+    app.dependency_overrides[get_db] = _override_get_db
+    yield db_path
+    app.dependency_overrides.clear()
+    shutil.rmtree(tmp_dir, ignore_errors=True)
+
+
+@pytest.fixture
+def client(temp_api_db):
+    return TestClient(app)
+
+
+def test_root_and_health(client):
+    res_root = client.get("/")
+    assert res_root.status_code == 200
+    assert res_root.json()["status"] == "online"
+
+    res_health = client.get("/health")
+    assert res_health.status_code == 200
+    assert res_health.json()["status"] == "ok"
+
+
+def test_events_crud_and_stats(client):
+    # Post event
+    payload = {
+        "timestamp": "2026-09-02T13:00:00Z",
+        "event_type": "intrusion",
+        "severity": "high",
+        "camera_id": "cam_01",
+        "track_id": 5,
+        "class_name": "person",
+        "zone_name": "restricted_area_1",
+    }
+    res_post = client.post("/api/events", json=payload)
+    assert res_post.status_code == 201
+    event_data = res_post.json()
+    assert event_data["id"] is not None
+    event_id = event_data["id"]
+
+    # Get list
+    res_list = client.get("/api/events")
+    assert res_list.status_code == 200
+    data = res_list.json()
+    assert data["total"] >= 1
+    assert data["items"][0]["id"] == event_id
+
+    # Get single by id
+    res_single = client.get(f"/api/events/{event_id}")
+    assert res_single.status_code == 200
+    assert res_single.json()["event_type"] == "intrusion"
+
+    # Get stats
+    res_stats = client.get("/api/events/stats")
+    assert res_stats.status_code == 200
+    stats = res_stats.json()
+    assert stats["total_events"] >= 1
+    assert stats["by_type"]["intrusion"] >= 1
+
+
+def test_cameras_api(client):
+    res_get = client.get("/api/cameras")
+    assert res_get.status_code == 200
+    cams = res_get.json()
+    assert len(cams) >= 1
+
+    payload = {
+        "id": "cam_test",
+        "name": "Test Camera",
+        "source": "data/videos/test.mp4",
+        "status": "active",
+    }
+    res_post = client.post("/api/cameras", json=payload)
+    assert res_post.status_code == 201
+    assert res_post.json()["id"] == "cam_test"
+
+
+def test_config_fence_api(client):
+    res_get = client.get("/api/config/fence")
+    assert res_get.status_code == 200
+
+    payload = {
+        "cooldown_seconds": 20.0,
+        "zones": [
+            {
+                "name": "test_zone",
+                "polygon": [[0, 0], [100, 0], [100, 100], [0, 100]],
+                "severity": "critical",
+            }
+        ],
+    }
+    res_post = client.post("/api/config/fence", json=payload)
+    assert res_post.status_code == 200
+    res_json = res_post.json()
+    assert res_json["status"] == "success"
+    assert res_json["config"]["cooldown_seconds"] == 20.0
+
+
+def test_websocket_stream(client):
+    with client.websocket_connect("/api/events/stream") as websocket:
+        # Trigger event creation via REST
+        client.post(
+            "/api/events",
+            json={
+                "timestamp": "2026-09-02T13:05:00Z",
+                "event_type": "face_unknown",
+                "severity": "high",
+                "camera_id": "cam_01",
+            },
+        )
+        msg = websocket.receive_json()
+        assert msg["type"] == "NEW_EVENT"
+        assert msg["data"]["event_type"] == "face_unknown"

@@ -1,50 +1,49 @@
-# ==============================================================
-# IBVAP — Global Configuration
-# ==============================================================
-
 detection:
-  model_path: "models/yolo26n.pt"    # Relative to project root
-  confidence: 0.35                    # Min confidence threshold
-  iou_threshold: 0.45                 # NMS IoU threshold
-  target_classes:                     # COCO classes to keep
-    - person
-    - car
-    - truck
-    - bus
-    - motorcycle
-    - bicycle
-  device: ""                          # "" = auto (CUDA if available, else CPU)
-  img_size: 640                       # Inference input size
-
+  model_path: models/yolo26n.pt
+  confidence: 0.35
+  iou_threshold: 0.45
+  target_classes:
+  - person
+  - car
+  - truck
+  - bus
+  - motorcycle
+  - bicycle
+  device: ''
+  img_size: 640
 video:
-  source: "data/videos/test.mp4"      # MP4 path or RTSP URL
-  max_fps: 30                         # Cap playback/processing FPS
-
-# Tracking (Step 2)
+  source: data/videos/test.mp4
+  max_fps: 30
 tracking:
-  tracker: "bytetrack.yaml"           # ByteTrack config (built into Ultralytics)
-
-# Virtual fence zones (Step 2)
+  tracker: bytetrack.yaml
 fence:
-  cooldown_seconds: 30                # Min gap between duplicate alerts per track+zone
+  cooldown_seconds: 20.0
   zones:
-    - name: "restricted_area_1"
-      polygon: [[100,200], [400,200], [400,500], [100,500]]
-      severity: "high"
-    - name: "perimeter_zone"
-      polygon: [[50,50], [600,50], [600,100], [50,100]]
-      severity: "critical"
-
-# Face recognition (Step 3)
+  - name: test_zone
+    polygon:
+    - - 0
+      - 0
+    - - 100
+      - 0
+    - - 100
+      - 100
+    - - 0
+      - 100
+    severity: critical
 face:
-  gallery_path: "data/faces"           # Each subfolder = one person (e.g. data/faces/john_doe/)
-  similarity_threshold: 0.6            # Cosine similarity threshold for a "known" match
-  model_name: "buffalo_l"              # InsightFace model pack (buffalo_l = ArcFace + RetinaFace)
-  det_size: [640, 640]                 # Face detection input size
-  gpu_id: -1                           # -1 = CPU only, 0+ = CUDA GPU index
-  min_face_size: 20                    # Skip person crops smaller than this (pixels)
-
-# Event engine (Step 4 — placeholder)
+  gallery_path: data/faces
+  similarity_threshold: 0.6
+  model_name: buffalo_l
+  det_size:
+  - 640
+  - 640
+  gpu_id: -1
+  min_face_size: 20
 events:
-  cooldown_seconds: 30                # Min gap between duplicate alerts
-  evidence_path: "data/evidence"
+  cooldown_seconds: 30
+  evidence_path: data/evidence
+  db_path: data/ibvap.db
+cameras:
+  default_camera_id: cam_01
+  default_camera_name: Border Gate Alpha
+  default_camera_source: data/videos/test.mp4

@@ -3,15 +3,15 @@
 
 ---
 
-## Current Status: 🟢 Step 3 Complete — Ready for Step 4
+## Current Status: 🟢 Step 4 Complete — Ready for Step 6
 
 | Step | Status | Description |
 |---|---|---|
 | Step 1 | ✅ **Complete** | YOLO26n detection module |
 | Step 2 | ✅ **Complete** | Tracking + virtual fence |
 | Step 3 | ✅ **Complete** | Face detection + recognition |
-| Step 4 | ⬜ Not started | FastAPI + SQLite + event engine |
-| Step 5 | ⬜ Not started | React dashboard |
+| Step 4 | ✅ **Complete** | FastAPI + SQLite + event engine |
+| Step 5 | 🚧 In progress | React dashboard (being worked on by Ridham) |
 | Step 6 | ⬜ Not started | ANPR + loitering + integration |
 | Step 7 | ⬜ Not started | Testing, performance, polish |
 
@@ -263,14 +263,38 @@ python scripts/run_face_demo.py --video path/to/video.mp4 --save
 
 ---
 
-## Future Steps (not started)
+## ✅ Step 4: FastAPI + SQLite + Event Engine — COMPLETE
 
-### Step 4: FastAPI + SQLite + Event Engine
-- REST API, WebSocket, SQLite database
-- Event severity scoring, dedup, cooldown
-- Evidence snapshot storage
+**Date completed:** 2026-09-02
 
-### Step 5: React Dashboard
+### What was built
+
+| File | Purpose |
+|---|---|
+| `src/rules/event_engine.py` | **Core module** — Event severity scoring, cooldown dedup, evidence snapshot capturing |
+| `src/db/database.py` | SQLite async connection manager + schema creation (`events`, `cameras`, `known_faces`) |
+| `src/db/crud.py` | Async CRUD queries (create event, paginated filter events, summary stats, camera CRUD) |
+| `src/api/models.py` | Pydantic request & response schemas for REST API & WebSocket payloads |
+| `src/api/routes/events.py` | GET /api/events, GET /api/events/stats, GET /api/events/{id}, POST /api/events, WS /api/events/stream |
+| `src/api/routes/cameras.py` | GET /api/cameras, POST /api/cameras |
+| `src/api/routes/config.py` | GET /api/config/fence, POST /api/config/fence |
+| `src/api/main.py` | FastAPI application entrypoint, CORS middleware, static file mounting (`/api/evidence`) |
+| `tests/test_event_engine.py` | 5 unit tests for EventEngine |
+| `tests/test_db.py` | 4 async unit tests for database and CRUD functions |
+| `tests/test_api.py` | 5 integration tests for REST endpoints and WebSocket stream |
+
+### Test results
+```
+tests/test_event_engine.py — 5 passed ✅
+tests/test_db.py           — 4 passed ✅
+tests/test_api.py          — 5 passed ✅
+```
+
+---
+
+## Future Steps
+
+### Step 5: React Dashboard (In Progress by Ridham)
 - Vite + React + Tailwind CSS
 - Live event feed, camera grid, alert detail, fence editor
 
