@@ -43,6 +43,19 @@ events:
   cooldown_seconds: 30
   evidence_path: data/evidence
   db_path: data/ibvap.db
+anpr:
+  languages:
+  - en
+  min_confidence: 0.4
+  vehicle_classes:
+  - car
+  - truck
+  - bus
+  - motorcycle
+  gpu: false
+loitering:
+  threshold_seconds: 60.0
+  cooldown_seconds: 30.0
 cameras:
   default_camera_id: cam_01
   default_camera_name: Border Gate Alpha

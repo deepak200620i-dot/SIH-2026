@@ -3,7 +3,7 @@
 
 ---
 
-## Current Status: 🟢 Step 4 Complete — Ready for Step 6
+## Current Status: 🟢 Step 6 Complete — Ready for Step 7
 
 | Step | Status | Description |
 |---|---|---|
@@ -12,7 +12,7 @@
 | Step 3 | ✅ **Complete** | Face detection + recognition |
 | Step 4 | ✅ **Complete** | FastAPI + SQLite + event engine |
 | Step 5 | 🚧 In progress | React dashboard (being worked on by Ridham) |
-| Step 6 | ⬜ Not started | ANPR + loitering + integration |
+| Step 6 | ✅ **Complete** | ANPR + loitering + integration |
 | Step 7 | ⬜ Not started | Testing, performance, polish |
 
 ---
@@ -292,16 +292,36 @@ tests/test_api.py          — 5 passed ✅
 
 ---
 
+## ✅ Step 6: ANPR + Loitering + Integration — COMPLETE
+
+**Date completed:** 2026-09-03
+
+### What was built
+
+| File | Purpose |
+|---|---|
+| `src/anpr/plate_reader.py` | **Core module** — Vehicle crop, EasyOCR plate text extraction, Indian & general plate regex validation |
+| `src/rules/loitering.py` | **Core module** — Temporal zone dwell-time tracking & debounced loitering alerts |
+| `src/pipeline/video_pipeline.py` | **Core module** — Unified pipeline orchestrator combining detection, tracking, fence, loitering, faces, ANPR, and event DB persistence |
+| `tests/test_plate_reader.py` | 4 unit tests for ANPR plate reading |
+| `tests/test_loitering.py` | 2 unit tests for loitering dwell time |
+| `tests/test_video_pipeline.py` | 2 unit tests for video pipeline orchestration |
+
+### Test results
+```
+tests/test_plate_reader.py    — 4 passed ✅
+tests/test_loitering.py       — 2 passed ✅
+tests/test_video_pipeline.py  — 2 passed ✅
+Full suite (107 tests total)   — 107 passed in 4.87s ✅
+```
+
+---
+
 ## Future Steps
 
 ### Step 5: React Dashboard (In Progress by Ridham)
 - Vite + React + Tailwind CSS
 - Live event feed, camera grid, alert detail, fence editor
-
-### Step 6: ANPR + Loitering + Integration
-- Vehicle plate OCR via EasyOCR
-- Dwell-time loitering detection
-- Unified video pipeline orchestrator
 
 ### Step 7: Testing, Performance, Polish
 - End-to-end integration test
