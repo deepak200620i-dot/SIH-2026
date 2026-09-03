@@ -1,8 +1,8 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { useWebSocket } from '../hooks/useWebSocket';
-import { useCameras } from '../hooks/useCameras';
+import { useWebSocket } from '../hooks/useWebSocket1';
+import { useCameras } from '../hooks/useCameras1';
 import { useStats } from '../hooks/useStats';
-import { checkHealth } from '../services/api';
+import { checkHealth } from '../services/api1';
 import { getHighestSeverity } from '../utils/formatters';
 
 const SystemContext = createContext(null);
