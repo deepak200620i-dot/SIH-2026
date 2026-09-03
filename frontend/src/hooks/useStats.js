@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { getStats } from '../services/api';
+import { getStats } from '../services/api1';
 
 export function useStats() {
   const [stats, setStats] = useState(null);
