@@ -1,5 +1,5 @@
 import React from 'react';
-import { SEVERITY_CONFIG } from '../../utils/constants';
+import { SEVERITY_CONFIG } from '../../utils/constants1';
 import { MdShield } from 'react-icons/md';
 
 const LEVEL_STYLES = {

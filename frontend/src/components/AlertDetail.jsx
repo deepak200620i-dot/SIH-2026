@@ -10,7 +10,7 @@ import {
   parseBbox,
   parseMetadata,
 } from '../utils/formatters';
-import { getEvidenceUrl } from '../services/api';
+import { getEvidenceUrl } from '../services/api1';
 import {
   MdClose,
   MdAccessTime,

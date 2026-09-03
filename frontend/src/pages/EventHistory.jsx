@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { getEvents } from '../services/api';
+import { getEvents } from '../services/api1';
 import { useSystem } from '../context/SystemContext';
 import SeverityBadge from '../components/common/SeverityBadge';
 import AlertDetail from '../components/AlertDetail';
@@ -7,7 +7,7 @@ import LoadingState from '../components/common/LoadingState';
 import EmptyState from '../components/common/EmptyState';
 import ErrorState from '../components/common/ErrorState';
 import { formatTimestamp, formatDateTime, getEventTitle, formatCameraId, formatConfidence } from '../utils/formatters';
-import { SEVERITY_ORDER, EVENT_TYPES } from '../utils/constants';
+import { SEVERITY_ORDER, EVENT_TYPES } from '../utils/constants1';
 import { MdHistory, MdFilterList, MdChevronLeft, MdChevronRight } from 'react-icons/md';
 
 const PAGE_SIZE = 25;

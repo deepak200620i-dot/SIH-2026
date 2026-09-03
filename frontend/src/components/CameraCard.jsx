@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import StatusIndicator from './common/StatusIndicator';
 import SeverityBadge from './common/SeverityBadge';
 import { formatCameraId, formatConfidence, formatTrackId } from '../utils/formatters';
-import { getEvidenceUrl } from '../services/api';
+import { getEvidenceUrl } from '../services/api1';
 import { MdVideocam, MdVideocamOff, MdPersonSearch, MdDirectionsCar } from 'react-icons/md';
 
 export default function CameraCard({ camera, recentEvents = [] }) {

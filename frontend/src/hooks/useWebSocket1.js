@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import WebSocketManager from '../services/websocket';
+import WebSocketManager from '../services/websocket1';
 
 const MAX_EVENTS = 100;
 

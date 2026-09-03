@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { getEvents } from '../services/api';
+import { getEvents } from '../services/api1';
 
 export function useEvents(params = {}) {
   const [events, setEvents] = useState([]);

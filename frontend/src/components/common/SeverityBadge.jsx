@@ -1,5 +1,5 @@
 import React from 'react';
-import { SEVERITY_CONFIG } from '../../utils/constants';
+import { SEVERITY_CONFIG } from '../../utils/constants1';
 
 export default function SeverityBadge({ severity, size = 'md' }) {
   const config = SEVERITY_CONFIG[severity] || SEVERITY_CONFIG.low;

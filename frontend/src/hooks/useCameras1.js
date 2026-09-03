@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { getCameras } from '../services/api';
+import { getCameras } from '../services/api1';
 
 export function useCameras() {
   const [cameras, setCameras] = useState([]);
