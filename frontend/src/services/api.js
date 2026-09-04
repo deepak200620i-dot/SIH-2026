@@ -1,14 +1,6 @@
 import axios from 'axios';
 
-const getDefaultApiBase = () => {
-  if (import.meta.env.VITE_API_URL) return import.meta.env.VITE_API_URL;
-  if (typeof window !== 'undefined' && window.location.origin) {
-    return window.location.origin;
-  }
-  return 'http://localhost:8000';
-};
-
-export const API_BASE = getDefaultApiBase();
+export const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
 const apiClient = axios.create({
   baseURL: API_BASE,
@@ -17,7 +9,6 @@ const apiClient = axios.create({
     'Accept': 'application/json'
   }
 });
-
 
 export async function getEvents(params = {}) {
   const response = await apiClient.get('/api/events', { params });
