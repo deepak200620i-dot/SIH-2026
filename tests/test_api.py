@@ -50,11 +50,16 @@ def client(temp_api_db):
 def test_root_and_health(client):
     res_root = client.get("/")
     assert res_root.status_code == 200
-    assert res_root.json()["status"] == "online"
+    # Root can return HTML (when SPA frontend is built) or JSON
+    if "text/html" in res_root.headers.get("content-type", ""):
+        assert "<html" in res_root.text.lower()
+    else:
+        assert res_root.json()["status"] == "online"
 
     res_health = client.get("/health")
     assert res_health.status_code == 200
     assert res_health.json()["status"] == "ok"
+
 
 
 def test_events_crud_and_stats(client):
@@ -147,3 +152,43 @@ def test_websocket_stream(client):
         msg = websocket.receive_json()
         assert msg["type"] == "NEW_EVENT"
         assert msg["data"]["event_type"] == "face_unknown"
+
+
+def test_simulate_event_api(client):
+    res = client.post("/api/events/simulate")
+    assert res.status_code == 201
+    data = res.json()
+    assert data["id"] is not None
+    assert data["event_type"] in ["intrusion", "loitering", "face_match", "anpr"]
+    assert data["confidence"] is not None
+
+
+def test_faces_crud_api(client):
+    # 1. List faces (initially empty)
+    res_list = client.get("/api/faces")
+    assert res_list.status_code == 200
+    assert isinstance(res_list.json(), list)
+
+    # 2. Upload face
+    import io
+    fake_img = io.BytesIO(b"fake image bytes")
+    files = {"image": ("test_person.jpg", fake_img, "image/jpeg")}
+    data = {"name": "Major Sandeep"}
+
+    res_post = client.post("/api/faces", data=data, files=files)
+    assert res_post.status_code == 201
+    face = res_post.json()
+    assert face["name"] == "Major Sandeep"
+    face_id = face["id"]
+
+    # 3. List faces again
+    res_list_after = client.get("/api/faces")
+    assert res_list_after.status_code == 200
+    names = [f["name"] for f in res_list_after.json()]
+    assert "Major Sandeep" in names
+
+    # 4. Delete face
+    res_del = client.delete(f"/api/faces/{face_id}")
+    assert res_del.status_code == 200
+    assert res_del.json()["status"] == "success"
+

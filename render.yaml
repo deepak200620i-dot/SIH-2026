@@ -1,0 +1,17 @@
+services:
+  - type: web
+    name: ibvap-border-security
+    env: python
+    region: oregon
+    plan: free
+    buildCommand: bash build.sh
+    startCommand: uvicorn src.api.main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.10.12
+      - key: DATABASE_URL
+        sync: false # Set to your Supabase PostgreSQL connection string
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_KEY
+        sync: false

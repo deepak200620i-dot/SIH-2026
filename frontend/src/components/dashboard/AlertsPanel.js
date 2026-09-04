@@ -1,8 +1,0 @@
-import { jsx as _jsx, jsxs as _jsxs } from "react/jsx-runtime";
-import { SeverityBadge } from "@/components/common/SeverityBadge";
-import { formatTime } from "@/utils/date";
-import { AlertCircle } from "lucide-react";
-export const AlertsPanel = ({ alerts, maxItems = 5 }) => {
-    const displayAlerts = alerts.slice(0, maxItems);
-    return (_jsxs("div", { className: "border border-gray-700 rounded p-4 bg-gray-900/50", children: [_jsxs("div", { className: "flex items-center justify-between mb-4", children: [_jsxs("h3", { className: "text-white font-semibold flex items-center gap-2", children: [_jsx(AlertCircle, { size: 18, className: "text-red-500" }), "Active Alerts"] }), _jsx("span", { className: "text-red-500 text-sm font-bold", children: alerts.length })] }), displayAlerts.length === 0 ? (_jsx("div", { className: "text-gray-400 text-sm text-center py-8", children: "No active alerts" })) : (_jsx("div", { className: "space-y-3", children: displayAlerts.map((alert) => (_jsxs("div", { className: "p-3 bg-gray-800 border-l-4 border-red-500 rounded hover:bg-gray-700 transition cursor-pointer", children: [_jsxs("div", { className: "flex items-start justify-between mb-2", children: [_jsx(SeverityBadge, { severity: alert.severity }), _jsx("span", { className: "text-gray-400 text-xs", children: formatTime(alert.timestamp) })] }), _jsx("p", { className: "text-white text-sm font-semibold mb-1", children: alert.eventType.replace(/_/g, " ") }), _jsx("p", { className: "text-gray-300 text-xs", children: alert.description }), _jsx("div", { className: "mt-2 text-xs text-gray-400", children: alert.cameraId })] }, alert.id))) }))] }));
-};

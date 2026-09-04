@@ -82,3 +82,13 @@ class ConfigResponse(BaseModel):
     status: str = "success"
     message: str
     config: dict[str, Any]
+
+
+class KnownFaceResponse(BaseModel):
+    id: int
+    name: str
+    image_url: Optional[str] = None
+    created_at: Optional[str] = None
+
+    model_config = ConfigDict(from_attributes=True)
+

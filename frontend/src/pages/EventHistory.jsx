@@ -38,7 +38,9 @@ function EventHistory() {
       if (cameraId) params.camera_id = cameraId;
 
       const data = await getEvents(params);
-      setEvents(Array.isArray(data) ? data : []);
+      const items = Array.isArray(data) ? data : (data?.items || []);
+      setEvents(items);
+
     } catch (err) {
       setError(err.message || 'Failed to fetch events');
       setEvents([]);
