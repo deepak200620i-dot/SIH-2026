@@ -17,6 +17,7 @@ import {
   CheckCircle2,
   Cpu,
   Layers,
+  AlertTriangle,
 } from "lucide-react";
 import {
   apiUploadVideo,
@@ -44,14 +45,17 @@ export const LiveSurveillance: React.FC = () => {
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const offscreenCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const webcamIntervalRef = useRef<any>(null);
   const frameIndexRef = useRef(0);
+  const isProcessingFrameRef = useRef(false);
 
   // Video Upload State
   const [isUploadOpen, setIsUploadOpen] = useState(false);
   const [uploadFile, setUploadFile] = useState<File | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
   const [uploadResult, setUploadResult] = useState<VideoUploadResult | null>(null);
 
   // Add Camera Modal State
@@ -72,6 +76,9 @@ export const LiveSurveillance: React.FC = () => {
         clearInterval(webcamIntervalRef.current);
         webcamIntervalRef.current = null;
       }
+      if (videoRef.current) {
+        videoRef.current.srcObject = null;
+      }
       setIsWebcamActive(false);
       setLatestDetections([]);
     } else {
@@ -81,17 +88,20 @@ export const LiveSurveillance: React.FC = () => {
           audio: false,
         });
         streamRef.current = stream;
-        if (videoRef.current) {
-          videoRef.current.srcObject = stream;
-          videoRef.current.play();
-        }
         setIsWebcamActive(true);
 
+        setTimeout(() => {
+          if (videoRef.current) {
+            videoRef.current.srcObject = stream;
+            videoRef.current.play().catch(() => {});
+          }
+        }, 100);
+
         // Start frame capture loop
-        webcamIntervalRef.current = setInterval(captureAndProcessFrame, 600);
+        webcamIntervalRef.current = setInterval(captureAndProcessFrame, 500);
       } catch (err) {
         console.error("Failed to access device camera:", err);
-        alert("Camera access was denied or device camera is unavailable.");
+        alert("Camera access was denied or device camera is unavailable. Please grant camera permission.");
       }
     }
   };
@@ -110,65 +120,92 @@ export const LiveSurveillance: React.FC = () => {
 
   // Frame Capture and AI Processing
   const captureAndProcessFrame = async () => {
-    if (!videoRef.current || !canvasRef.current || videoRef.current.readyState < 2) {
+    if (isProcessingFrameRef.current) return;
+    if (!videoRef.current || videoRef.current.readyState < 2 || videoRef.current.videoWidth === 0) {
       return;
     }
 
     const video = videoRef.current;
-    const canvas = canvasRef.current;
-    canvas.width = video.videoWidth || 640;
-    canvas.height = video.videoHeight || 360;
+    const vWidth = video.videoWidth;
+    const vHeight = video.videoHeight;
 
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
+    // Create / size offscreen canvas for light payload upload
+    if (!offscreenCanvasRef.current) {
+      offscreenCanvasRef.current = document.createElement("canvas");
+    }
+    const offCanvas = offscreenCanvasRef.current;
+    offCanvas.width = 640;
+    offCanvas.height = 360;
+    const offCtx = offCanvas.getContext("2d");
+    if (!offCtx) return;
 
-    // Draw current frame to hidden offscreen canvas to export base64
-    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-    const base64Image = canvas.toDataURL("image/jpeg", 0.75);
+    offCtx.drawImage(video, 0, 0, 640, 360);
+    const base64Image = offCanvas.toDataURL("image/jpeg", 0.65);
 
+    isProcessingFrameRef.current = true;
     frameIndexRef.current += 1;
-    const res = await apiProcessWebcamFrame(base64Image, "device_webcam", frameIndexRef.current);
 
-    if (res) {
-      setLatestDetections(res.tracked_objects);
-      const peopleCount = res.tracked_objects.filter((o) => o.class_name === "person").length;
-      const vehicleCount = res.tracked_objects.filter((o) =>
-        ["car", "truck", "bus", "motorcycle"].includes(o.class_name)
-      ).length;
+    try {
+      const res = await apiProcessWebcamFrame(base64Image, "device_webcam", frameIndexRef.current);
 
-      setWebcamStats({
-        fps: Math.round(res.fps) || 30,
-        latencyMs: Math.round(res.total_ms) || 15,
-        people: peopleCount,
-        vehicles: vehicleCount,
-      });
+      if (res && canvasRef.current) {
+        setLatestDetections(res.tracked_objects);
+        const peopleCount = res.tracked_objects.filter((o) => o.class_name === "person").length;
+        const vehicleCount = res.tracked_objects.filter((o) =>
+          ["car", "truck", "bus", "motorcycle"].includes(o.class_name)
+        ).length;
 
-      // Overlay bounding boxes on canvas
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        setWebcamStats({
+          fps: Math.round(res.fps) || 30,
+          latencyMs: Math.round(res.total_ms) || 18,
+          people: peopleCount,
+          vehicles: vehicleCount,
+        });
 
-      res.tracked_objects.forEach((obj) => {
-        const [x1, y1, x2, y2] = obj.bbox;
-        const width = x2 - x1;
-        const height = y2 - y1;
+        // Overlay bounding boxes onto transparent overlay canvas
+        const overlayCanvas = canvasRef.current;
+        overlayCanvas.width = vWidth;
+        overlayCanvas.height = vHeight;
+        const ctx = overlayCanvas.getContext("2d");
+        if (ctx) {
+          ctx.clearRect(0, 0, vWidth, vHeight);
 
-        // Box
-        ctx.strokeStyle = obj.class_name === "person" ? "#3b82f6" : "#eab308";
-        ctx.lineWidth = 3;
-        ctx.strokeRect(x1, y1, width, height);
+          // Scaling factors between 640x360 offscreen and original video
+          const scaleX = vWidth / 640;
+          const scaleY = vHeight / 360;
 
-        // Label Tag
-        ctx.fillStyle = obj.class_name === "person" ? "#3b82f6" : "#eab308";
-        const label = `${obj.class_name.toUpperCase()} #${obj.track_id} (${Math.round(
-          obj.confidence * 100
-        )}%)`;
-        ctx.font = "bold 14px monospace";
-        const textWidth = ctx.measureText(label).width;
-        ctx.fillRect(x1, Math.max(0, y1 - 22), textWidth + 8, 22);
+          res.tracked_objects.forEach((obj) => {
+            const [x1, y1, x2, y2] = obj.bbox;
+            const sx1 = x1 * scaleX;
+            const sy1 = y1 * scaleY;
+            const sWidth = (x2 - x1) * scaleX;
+            const sHeight = (y2 - y1) * scaleY;
 
-        ctx.fillStyle = "#ffffff";
-        ctx.fillText(label, x1 + 4, Math.max(16, y1 - 6));
-      });
+            // Box
+            ctx.strokeStyle = obj.class_name === "person" ? "#38bdf8" : "#facc15";
+            ctx.lineWidth = 3;
+            ctx.strokeRect(sx1, sy1, sWidth, sHeight);
+
+            // Translucent fill
+            ctx.fillStyle = obj.class_name === "person" ? "rgba(56, 189, 248, 0.15)" : "rgba(250, 204, 21, 0.15)";
+            ctx.fillRect(sx1, sy1, sWidth, sHeight);
+
+            // Label Tag
+            ctx.fillStyle = obj.class_name === "person" ? "#0284c7" : "#ca8a04";
+            const label = `${obj.class_name.toUpperCase()} #${obj.track_id} (${Math.round(
+              obj.confidence * 100
+            )}%)`;
+            ctx.font = "bold 15px sans-serif";
+            const textWidth = ctx.measureText(label).width;
+            ctx.fillRect(sx1, Math.max(0, sy1 - 24), textWidth + 10, 24);
+
+            ctx.fillStyle = "#ffffff";
+            ctx.fillText(label, sx1 + 5, Math.max(17, sy1 - 6));
+          });
+        }
+      }
+    } finally {
+      isProcessingFrameRef.current = false;
     }
   };
 
@@ -178,15 +215,16 @@ export const LiveSurveillance: React.FC = () => {
     if (!uploadFile) return;
 
     setIsProcessing(true);
+    setUploadError(null);
     setUploadResult(null);
 
-    const result = await apiUploadVideo(uploadFile, "upload_feed");
+    const res = await apiUploadVideo(uploadFile, "upload_feed", 5);
     setIsProcessing(false);
 
-    if (result) {
-      setUploadResult(result);
+    if (res.success && res.data) {
+      setUploadResult(res.data);
     } else {
-      alert("Failed to process video file. Ensure backend is running.");
+      setUploadError(res.error || "Failed to process video file. Ensure backend is running.");
     }
   };
 
@@ -236,7 +274,7 @@ export const LiveSurveillance: React.FC = () => {
           {/* Webcam Button */}
           <button
             onClick={toggleWebcam}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium text-sm transition ${
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium text-sm transition shadow-lg ${
               isWebcamActive
                 ? "bg-red-600 hover:bg-red-700 text-white"
                 : "bg-emerald-600 hover:bg-emerald-700 text-white"
@@ -248,8 +286,11 @@ export const LiveSurveillance: React.FC = () => {
 
           {/* Upload Video Button */}
           <button
-            onClick={() => setIsUploadOpen(true)}
-            className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium text-sm transition"
+            onClick={() => {
+              setIsUploadOpen(true);
+              setUploadError(null);
+            }}
+            className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium text-sm transition shadow-lg"
           >
             <Upload size={16} />
             <span>Upload Video</span>
@@ -269,7 +310,7 @@ export const LiveSurveillance: React.FC = () => {
       {/* Live Device Webcam Section (When Active) */}
       {isWebcamActive && (
         <div className="bg-gray-900 border border-blue-500/60 rounded-xl p-5 shadow-2xl space-y-4">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="flex items-center gap-3">
               <span className="relative flex h-3 w-3">
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
@@ -282,7 +323,7 @@ export const LiveSurveillance: React.FC = () => {
             </div>
 
             {/* Webcam Live Metrics */}
-            <div className="flex items-center gap-4 text-xs">
+            <div className="flex items-center gap-3 text-xs">
               <div className="flex items-center gap-1.5 bg-gray-800 px-3 py-1.5 rounded-lg border border-gray-700 text-gray-300">
                 <Cpu size={14} className="text-blue-400" />
                 <span>Inference: <strong className="text-white">{webcamStats.latencyMs}ms</strong></span>
@@ -303,23 +344,25 @@ export const LiveSurveillance: React.FC = () => {
           </div>
 
           {/* Video Player & Canvas Overlays */}
-          <div className="relative aspect-video max-h-[520px] mx-auto bg-black rounded-lg overflow-hidden border border-gray-800 flex items-center justify-center">
-            {/* Hidden raw video element used for drawing to canvas */}
+          <div className="relative aspect-video max-h-[560px] mx-auto bg-black rounded-xl overflow-hidden border border-gray-800 flex items-center justify-center">
+            {/* Realtime Live Video Feed */}
             <video
               ref={videoRef}
+              autoPlay
               playsInline
               muted
-              className="absolute inset-0 w-full h-full object-contain pointer-events-none opacity-0"
+              className="w-full h-full object-contain rounded-xl bg-black"
             />
-            {/* Annotated Output Canvas */}
+            {/* Transparent Overlay for Bounding Boxes */}
             <canvas
               ref={canvasRef}
-              className="w-full h-full object-contain"
+              className="absolute inset-0 w-full h-full object-contain pointer-events-none"
             />
 
             {latestDetections.length === 0 && (
-              <div className="absolute bottom-4 left-4 bg-black/70 px-3 py-1 rounded text-xs text-gray-400">
-                Ready: Point webcam at people, vehicles, or license plates to trigger detection.
+              <div className="absolute bottom-4 left-4 bg-black/75 px-3 py-1.5 rounded-lg text-xs text-emerald-400 border border-emerald-500/30 flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                Live Camera Active: Ready for object, face & vehicle detection.
               </div>
             )}
           </div>
@@ -366,7 +409,7 @@ export const LiveSurveillance: React.FC = () => {
                 <StatusBadge status={camera.status} />
               </div>
 
-              {/* Real Metrics */}
+              {/* Real Status Metrics */}
               <div className="grid grid-cols-3 gap-2 text-xs">
                 <div className="bg-gray-800/80 p-2.5 rounded-lg border border-gray-700/50">
                   <div className="text-gray-400 flex items-center gap-1 mb-1">
@@ -405,12 +448,23 @@ export const LiveSurveillance: React.FC = () => {
                 onClick={() => {
                   setIsUploadOpen(false);
                   setUploadResult(null);
+                  setUploadError(null);
                 }}
                 className="text-gray-400 hover:text-white transition"
               >
                 <X size={20} />
               </button>
             </div>
+
+            {uploadError && (
+              <div className="bg-red-950/60 border border-red-500/50 rounded-xl p-4 flex items-start gap-3 text-red-200 text-xs">
+                <AlertTriangle className="text-red-400 shrink-0 mt-0.5" size={18} />
+                <div>
+                  <strong className="block font-semibold mb-0.5">Upload Failed</strong>
+                  <span>{uploadError}</span>
+                </div>
+              </div>
+            )}
 
             {!uploadResult ? (
               <form onSubmit={handleVideoUpload} className="space-y-4">
@@ -443,7 +497,7 @@ export const LiveSurveillance: React.FC = () => {
                   <button
                     type="submit"
                     disabled={!uploadFile || isProcessing}
-                    className="flex items-center gap-2 px-5 py-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white rounded-lg font-medium text-sm transition"
+                    className="flex items-center gap-2 px-5 py-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white rounded-lg font-medium text-sm transition shadow-lg"
                   >
                     {isProcessing ? (
                       <>
@@ -493,7 +547,10 @@ export const LiveSurveillance: React.FC = () => {
 
                 <div className="flex justify-end gap-3 pt-2">
                   <button
-                    onClick={() => setUploadResult(null)}
+                    onClick={() => {
+                      setUploadResult(null);
+                      setUploadFile(null);
+                    }}
                     className="px-4 py-2 bg-gray-800 hover:bg-gray-700 text-gray-300 rounded-lg text-sm transition"
                   >
                     Upload Another
@@ -502,8 +559,9 @@ export const LiveSurveillance: React.FC = () => {
                     onClick={() => {
                       setIsUploadOpen(false);
                       setUploadResult(null);
+                      setUploadFile(null);
                     }}
-                    className="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm transition"
+                    className="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm transition shadow-lg"
                   >
                     Done
                   </button>

@@ -143,24 +143,35 @@ export const apiGetCameraStatus = async (cameraId) => {
         lastAlert: null,
     };
 };
-export const apiUploadVideo = async (file, cameraId = "upload_cam_01", frameSkip = 3) => {
+export const apiUploadVideo = async (file, cameraId = "upload_cam_01", frameSkip = 5) => {
     try {
         const formData = new FormData();
         formData.append("file", file);
         formData.append("camera_id", cameraId);
         formData.append("frame_skip", String(frameSkip));
+        formData.append("max_frames", "150");
         const res = await fetch(`${API_BASE}/api/video/upload`, {
             method: "POST",
             body: formData,
         });
         if (res.ok) {
-            return await res.json();
+            const data = await res.json();
+            return { success: true, data };
+        }
+        else {
+            const errData = await res.json().catch(() => ({}));
+            return {
+                success: false,
+                error: errData.detail || `Server error (HTTP ${res.status})`,
+            };
         }
     }
     catch (err) {
-        console.error("Failed to upload video:", err);
+        return {
+            success: false,
+            error: err?.message || "Network request failed. Ensure backend is running.",
+        };
     }
-    return null;
 };
 export const apiProcessWebcamFrame = async (base64Image, cameraId = "webcam_01", frameIndex = 0) => {
     try {

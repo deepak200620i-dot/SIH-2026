@@ -111,32 +111,38 @@ class FaceRecognizer:
         self._app = self._load_model()
 
         # Load known-face gallery from disk
-        self._load_gallery()
+        if self._app is not None:
+            self._load_gallery()
 
         logger.info(
             "FaceRecognizer initialised: model=%s, gallery=%d persons, "
-            "threshold=%.2f",
+            "threshold=%.2f, active=%s",
             self.model_name, len(self._gallery), self.similarity_threshold,
+            self._app is not None,
         )
 
     # ── Private helpers ──────────────────────────────────────────────────
 
     def _load_model(self):
-        """Load InsightFace FaceAnalysis model pack."""
-        from insightface.app import FaceAnalysis
+        """Load InsightFace FaceAnalysis model pack safely."""
+        try:
+            from insightface.app import FaceAnalysis
 
-        providers = (
-            ["CUDAExecutionProvider", "CPUExecutionProvider"]
-            if self.gpu_id >= 0
-            else ["CPUExecutionProvider"]
-        )
+            providers = (
+                ["CUDAExecutionProvider", "CPUExecutionProvider"]
+                if self.gpu_id >= 0
+                else ["CPUExecutionProvider"]
+            )
 
-        app = FaceAnalysis(name=self.model_name, providers=providers)
-        app.prepare(ctx_id=self.gpu_id, det_size=self.det_size)
+            app = FaceAnalysis(name=self.model_name, providers=providers)
+            app.prepare(ctx_id=self.gpu_id, det_size=self.det_size)
 
-        logger.info("InsightFace model '%s' loaded (providers=%s)",
-                     self.model_name, providers)
-        return app
+            logger.info("InsightFace model '%s' loaded (providers=%s)",
+                         self.model_name, providers)
+            return app
+        except Exception as err:
+            logger.warning("Could not initialize InsightFace (%s): %s", self.model_name, err)
+            return None
 
     @staticmethod
     def _normalize(embedding: np.ndarray) -> np.ndarray:
@@ -296,6 +302,9 @@ class FaceRecognizer:
 
         # Crop person region
         crop = frame[y1:y2, x1:x2]
+
+        if self._app is None:
+            return None
 
         # Detect faces in the crop
         faces = self._app.get(crop)
