@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { useLocation, Link } from "react-router-dom";
 import {
   LayoutDashboard,
@@ -12,6 +12,7 @@ import {
   Settings,
   Radio,
 } from "lucide-react";
+import { apiGetSystemStatus, apiGetCameras } from "@/services/api";
 
 const menuItems = [
   { icon: LayoutDashboard, label: "Dashboard", path: "/dashboard" },
@@ -29,6 +30,28 @@ const menuItems = [
 
 export const Sidebar: React.FC = () => {
   const location = useLocation();
+  const [isOnline, setIsOnline] = useState<boolean>(true);
+  const [cameraCount, setCameraCount] = useState<{ online: number; total: number }>({ online: 0, total: 0 });
+
+  useEffect(() => {
+    const fetchStatus = async () => {
+      try {
+        const [sysStatus, cameras] = await Promise.all([
+          apiGetSystemStatus(),
+          apiGetCameras(),
+        ]);
+        setIsOnline(sysStatus.apiServer === "ONLINE");
+        const onlineCams = cameras.filter((c) => c.status === "ONLINE").length;
+        setCameraCount({ online: onlineCams, total: cameras.length });
+      } catch (err) {
+        setIsOnline(false);
+      }
+    };
+
+    fetchStatus();
+    const interval = setInterval(fetchStatus, 10000);
+    return () => clearInterval(interval);
+  }, []);
 
   return (
     <div className="w-64 bg-gray-900 border-r border-gray-800 flex flex-col h-screen">
@@ -59,19 +82,22 @@ export const Sidebar: React.FC = () => {
         <div className="text-xs font-bold text-gray-400 mb-3">SYSTEM STATUS</div>
         <div className="space-y-2 text-xs">
           <div className="flex items-center gap-2">
-            <div className="w-2 h-2 rounded-full bg-green-500" />
-            <span className="text-gray-300">AI Engine Online</span>
+            <div className={`w-2 h-2 rounded-full ${isOnline ? "bg-green-500" : "bg-red-500"}`} />
+            <span className="text-gray-300">AI Engine {isOnline ? "Online" : "Offline"}</span>
           </div>
           <div className="flex items-center gap-2">
-            <div className="w-2 h-2 rounded-full bg-green-500" />
-            <span className="text-gray-300">Database Connected</span>
+            <div className={`w-2 h-2 rounded-full ${isOnline ? "bg-green-500" : "bg-red-500"}`} />
+            <span className="text-gray-300">Database {isOnline ? "Connected" : "Disconnected"}</span>
           </div>
           <div className="flex items-center gap-2">
-            <div className="w-2 h-2 rounded-full bg-green-500" />
-            <span className="text-gray-300">4 / 4 Cameras Online</span>
+            <div className={`w-2 h-2 rounded-full ${cameraCount.online > 0 ? "bg-green-500" : "bg-yellow-500"}`} />
+            <span className="text-gray-300">
+              {cameraCount.online} / {cameraCount.total} Cameras Online
+            </span>
           </div>
         </div>
       </div>
     </div>
   );
 };
+

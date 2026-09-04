@@ -10,8 +10,7 @@ import { ANPR } from "@/pages/ANPR";
 import { Analytics } from "@/pages/Analytics";
 import { Login } from "@/pages/Login";
 import { useAlerts } from "@/hooks/useAlerts";
-import { demoService } from "@/services/demoService";
-import { DemoModeModal } from "@/components/modals/DemoModeModal";
+
 
 // Placeholder pages
 const Cameras = () => <div className="p-6"><h1 className="text-white">Cameras</h1></div>;
@@ -21,15 +20,7 @@ const Settings = () => <div className="p-6"><h1 className="text-white">Settings<
 
 export const App: React.FC = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(true);
-  const [isDemoMode, setIsDemoMode] = useState(false);
   const { alerts } = useAlerts();
-
-  useEffect(() => {
-    if (isDemoMode) {
-      demoService.startDemo();
-      return () => demoService.stopDemo();
-    }
-  }, [isDemoMode]);
 
   if (!isAuthenticated) {
     return <Login onLogin={() => setIsAuthenticated(true)} />;
@@ -38,7 +29,7 @@ export const App: React.FC = () => {
   return (
     <BrowserRouter>
       <Routes>
-        <Route element={<AppShell isDemoMode={isDemoMode} alertCount={alerts.length} />}>
+        <Route element={<AppShell alertCount={alerts.length} />}>
           <Route index element={<Navigate to="/dashboard" replace />} />
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/live" element={<LiveSurveillance />} />
@@ -54,14 +45,9 @@ export const App: React.FC = () => {
           <Route path="*" element={<Navigate to="/dashboard" />} />
         </Route>
       </Routes>
-
-      {/* Demo Mode Modal */}
-      <DemoModeModal
-        isActive={isDemoMode}
-        onToggle={() => setIsDemoMode(!isDemoMode)}
-      />
     </BrowserRouter>
   );
 };
 
 export default App;
+

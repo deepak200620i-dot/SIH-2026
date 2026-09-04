@@ -36,21 +36,6 @@ export const LiveSurveillance: React.FC = () => {
                 ● LIVE {camera.fps} FPS
               </div>
 
-              {/* Detection Markers (simulated) */}
-              <div className="absolute inset-0 pointer-events-none">
-                {Math.random() > 0.5 && (
-                  <>
-                    <div className="absolute top-12 left-12 w-12 h-12 border-2 border-green-400 rounded" />
-                    <div className="absolute top-10 left-10 text-xs text-green-400 font-bold">P#1</div>
-                  </>
-                )}
-                {Math.random() > 0.5 && (
-                  <>
-                    <div className="absolute bottom-16 right-16 w-16 h-12 border-2 border-yellow-400 rounded" />
-                    <div className="absolute bottom-14 right-14 text-xs text-yellow-400 font-bold">V#2</div>
-                  </>
-                )}
-              </div>
 
               {/* Action Button */}
               <button

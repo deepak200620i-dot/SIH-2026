@@ -5,11 +5,10 @@ import { Sidebar } from "./Sidebar";
 
 interface AppShellProps {
   pageTitle?: string;
-  isDemoMode?: boolean;
   alertCount?: number;
 }
 
-export const AppShell: React.FC<AppShellProps> = ({ pageTitle, isDemoMode = false, alertCount = 0 }) => {
+export const AppShell: React.FC<AppShellProps> = ({ pageTitle, alertCount = 0 }) => {
   return (
     <div className="flex h-screen bg-gray-950">
       {/* Sidebar */}
@@ -18,7 +17,8 @@ export const AppShell: React.FC<AppShellProps> = ({ pageTitle, isDemoMode = fals
       {/* Main Content */}
       <div className="flex-1 flex flex-col">
         {/* Top Bar */}
-        <TopBar title={pageTitle} isDemoMode={isDemoMode} alertCount={alertCount} />
+        <TopBar title={pageTitle} alertCount={alertCount} />
+
 
         {/* Page Content */}
         <div className="flex-1 overflow-auto">
