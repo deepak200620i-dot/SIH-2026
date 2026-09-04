@@ -180,13 +180,14 @@ export interface VideoUploadResult {
 export const apiUploadVideo = async (
   file: File,
   cameraId: string = "upload_cam_01",
-  frameSkip: number = 3
-): Promise<VideoUploadResult | null> => {
+  frameSkip: number = 5
+): Promise<{ success: boolean; data?: VideoUploadResult; error?: string }> => {
   try {
     const formData = new FormData();
     formData.append("file", file);
     formData.append("camera_id", cameraId);
     formData.append("frame_skip", String(frameSkip));
+    formData.append("max_frames", "150");
 
     const res = await fetch(`${API_BASE}/api/video/upload`, {
       method: "POST",
@@ -194,12 +195,21 @@ export const apiUploadVideo = async (
     });
 
     if (res.ok) {
-      return await res.json();
+      const data = await res.json();
+      return { success: true, data };
+    } else {
+      const errData = await res.json().catch(() => ({}));
+      return {
+        success: false,
+        error: errData.detail || `Server error (HTTP ${res.status})`,
+      };
     }
-  } catch (err) {
-    console.error("Failed to upload video:", err);
+  } catch (err: any) {
+    return {
+      success: false,
+      error: err?.message || "Network request failed. Ensure backend is running.",
+    };
   }
-  return null;
 };
 
 export interface ProcessFrameResult {

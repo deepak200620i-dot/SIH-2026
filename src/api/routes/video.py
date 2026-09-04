@@ -127,11 +127,20 @@ async def process_webcam_frame(
     )
 
 
+def warmup_pipeline() -> None:
+    """Pre-initialize pipeline models during server startup."""
+    try:
+        get_pipeline()
+    except Exception as e:
+        print(f"Pipeline warmup notice: {e}")
+
+
 @router.post("/upload")
 async def upload_and_process_video(
     file: UploadFile = File(...),
     camera_id: str = Form("upload_cam_01"),
-    frame_skip: int = Form(3),
+    frame_skip: int = Form(5),
+    max_frames: int = Form(150),
     db: aiosqlite.Connection = Depends(get_db),
 ) -> dict[str, Any]:
     """
@@ -141,72 +150,77 @@ async def upload_and_process_video(
     if not file.filename:
         raise HTTPException(status_code=400, detail="No video file provided")
 
-    pipeline = get_pipeline()
-    pipeline.reset()
+    try:
+        pipeline = get_pipeline()
+        pipeline.reset()
 
-    # Save uploaded file to a temporary directory
-    os.makedirs("data/uploads", exist_ok=True)
-    temp_path = os.path.join("data/uploads", f"upload_{int(time.time())}_{file.filename}")
+        # Save uploaded file to a temporary directory
+        os.makedirs("data/uploads", exist_ok=True)
+        temp_path = os.path.join("data/uploads", f"upload_{int(time.time())}_{file.filename}")
 
-    with open(temp_path, "wb") as buffer:
-        shutil.copyfileobj(file.file, buffer)
+        with open(temp_path, "wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
 
-    # Open video with OpenCV
-    cap = cv2.VideoCapture(temp_path)
-    if not cap.isOpened():
-        raise HTTPException(status_code=400, detail="Failed to decode video file")
+        # Open video with OpenCV
+        cap = cv2.VideoCapture(temp_path)
+        if not cap.isOpened():
+            raise HTTPException(status_code=400, detail="Failed to decode video file. Please use standard MP4/H264 format.")
 
-    total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
-    video_fps = cap.get(cv2.CAP_PROP_FPS) or 30.0
+        total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+        video_fps = cap.get(cv2.CAP_PROP_FPS) or 30.0
 
-    frame_idx = 0
-    processed_count = 0
-    total_events_generated = 0
-    generated_events_list: list[dict[str, Any]] = []
+        frame_idx = 0
+        processed_count = 0
+        total_events_generated = 0
+        generated_events_list: list[dict[str, Any]] = []
 
-    start_proc = time.time()
+        start_proc = time.time()
 
-    while cap.isOpened():
-        ret, frame = cap.read()
-        if not ret:
-            break
+        while cap.isOpened() and processed_count < max_frames:
+            ret, frame = cap.read()
+            if not ret:
+                break
 
-        frame_idx += 1
-        if frame_skip > 1 and (frame_idx % frame_skip != 0):
-            continue
+            frame_idx += 1
+            if frame_skip > 1 and (frame_idx % frame_skip != 0):
+                continue
 
-        processed_count += 1
-        current_time = start_proc + (frame_idx / video_fps)
+            processed_count += 1
+            current_time = start_proc + (frame_idx / video_fps)
 
-        # Process frame
-        res = pipeline.process_frame(
-            frame=frame,
-            frame_index=frame_idx,
-            timestamp=current_time,
-            camera_id=camera_id,
-        )
+            # Process frame
+            res = pipeline.process_frame(
+                frame=frame,
+                frame_index=frame_idx,
+                timestamp=current_time,
+                camera_id=camera_id,
+            )
 
-        # Save and broadcast events
-        for evt in res.generated_events:
-            total_events_generated += 1
-            try:
-                saved = await create_event(db, evt)
-                evt_dict = saved.to_dict()
-                generated_events_list.append(evt_dict)
-                await ws_manager.broadcast(evt_dict)
-            except Exception as e:
-                print(f"Error persisting uploaded video event: {e}")
+            # Save and broadcast events
+            for evt in res.generated_events:
+                total_events_generated += 1
+                try:
+                    saved = await create_event(db, evt)
+                    evt_dict = saved.to_dict()
+                    generated_events_list.append(evt_dict)
+                    await ws_manager.broadcast(evt_dict)
+                except Exception as e:
+                    print(f"Error persisting uploaded video event: {e}")
 
-    cap.release()
-    elapsed_time = time.time() - start_proc
+        cap.release()
+        elapsed_time = time.time() - start_proc
 
-    return {
-        "status": "completed",
-        "filename": file.filename,
-        "camera_id": camera_id,
-        "total_frames": total_frames,
-        "processed_frames": processed_count,
-        "elapsed_seconds": round(elapsed_time, 2),
-        "events_count": total_events_generated,
-        "events": generated_events_list[:20],
-    }
+        return {
+            "status": "completed",
+            "filename": file.filename,
+            "camera_id": camera_id,
+            "total_frames": total_frames,
+            "processed_frames": processed_count,
+            "elapsed_seconds": round(elapsed_time, 2),
+            "events_count": total_events_generated,
+            "events": generated_events_list[:20],
+        }
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Video analytics failed: {str(exc)}")

@@ -35,6 +35,12 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 
     # Initialize database schema
     await init_db()
+
+    # Warm up AI pipeline in background thread
+    import asyncio
+    from src.api.routes.video import warmup_pipeline
+    asyncio.get_event_loop().run_in_executor(None, warmup_pipeline)
+
     yield
 
 
