@@ -110,6 +110,79 @@ async def post_event(
     return EventResponse(**event_dict)
 
 
+@router.post("/simulate", response_model=EventResponse, status_code=201)
+async def simulate_event(
+    db: aiosqlite.Connection = Depends(get_db),
+) -> EventResponse:
+    """Generate a realistic simulated security event and broadcast via WebSocket."""
+    import datetime
+    import random
+
+    scenarios = [
+        {
+            "event_type": "intrusion",
+            "severity": "critical",
+            "class_name": "person",
+            "zone_name": "perimeter_zone",
+            "confidence": 0.94,
+            "bbox": [420, 210, 580, 680],
+            "metadata": {"zone_type": "border_fence", "simulated": True},
+        },
+        {
+            "event_type": "loitering",
+            "severity": "high",
+            "class_name": "person",
+            "zone_name": "restricted_area_1",
+            "confidence": 0.88,
+            "bbox": [250, 180, 390, 560],
+            "metadata": {"dwell_time_seconds": 65.4, "simulated": True},
+        },
+        {
+            "event_type": "face_match",
+            "severity": "medium",
+            "class_name": "person",
+            "face_name": "john_doe",
+            "confidence": 0.92,
+            "bbox": [310, 140, 420, 280],
+            "metadata": {"match_type": "known_personnel", "simulated": True},
+        },
+        {
+            "event_type": "anpr",
+            "severity": "medium",
+            "class_name": "car",
+            "plate_text": "DL01AB1234",
+            "confidence": 0.96,
+            "bbox": [550, 320, 920, 610],
+            "metadata": {"country": "IND", "simulated": True},
+        },
+    ]
+
+    choice = random.choice(scenarios)
+    now_iso = datetime.datetime.now(datetime.timezone.utc).isoformat()
+
+    event_obj = Event(
+        timestamp=now_iso,
+        event_type=choice["event_type"],
+        severity=choice["severity"],
+        camera_id="cam_01",
+        track_id=random.randint(10, 99),
+        class_name=choice.get("class_name"),
+        zone_name=choice.get("zone_name"),
+        face_name=choice.get("face_name"),
+        plate_text=choice.get("plate_text"),
+        confidence=choice.get("confidence"),
+        bbox=choice.get("bbox"),
+        metadata=choice.get("metadata"),
+    )
+
+    created = await create_event(db, event_obj)
+    event_dict = created.to_dict()
+
+    await ws_manager.broadcast({"type": "NEW_EVENT", "data": event_dict})
+    return EventResponse(**event_dict)
+
+
+
 @router.websocket("/stream")
 async def websocket_event_stream(websocket: WebSocket) -> None:
     """WebSocket endpoint pushing real-time events to connected clients."""

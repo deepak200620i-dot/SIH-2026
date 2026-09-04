@@ -7,11 +7,13 @@ Async helper functions for creating and querying events, cameras, and known face
 from __future__ import annotations
 
 import json
+import os
 from typing import Any, Optional
 
 import aiosqlite
 
 from src.rules.event_engine import Event
+
 
 
 def _row_to_dict(row: aiosqlite.Row) -> dict[str, Any]:
@@ -169,3 +171,57 @@ async def add_camera(
     cur = await db.execute("SELECT * FROM cameras WHERE id = ?", (camera_id,))
     row = await cur.fetchone()
     return dict(row)
+
+
+async def get_known_faces(db: aiosqlite.Connection) -> list[dict[str, Any]]:
+    """List all registered known faces."""
+    cur = await db.execute("SELECT id, name, image_path, created_at FROM known_faces ORDER BY id DESC")
+    rows = await cur.fetchall()
+    results = []
+    for row in rows:
+        d = dict(row)
+        img_path = d.get("image_path")
+        # Format image URL for API response
+        if img_path:
+            clean_name = os.path.basename(img_path)
+            d["image_url"] = f"/api/faces/images/{clean_name}"
+        else:
+            d["image_url"] = None
+        results.append(d)
+    return results
+
+
+async def add_known_face(
+    db: aiosqlite.Connection,
+    name: str,
+    image_path: Optional[str] = None,
+    embedding: Optional[bytes] = None,
+) -> dict[str, Any]:
+    """Insert a new known face record."""
+    cursor = await db.execute(
+        "INSERT INTO known_faces (name, image_path, embedding) VALUES (?, ?, ?)",
+        (name, image_path, embedding),
+    )
+    await db.commit()
+    face_id = cursor.lastrowid
+
+    cur = await db.execute("SELECT id, name, image_path, created_at FROM known_faces WHERE id = ?", (face_id,))
+    row = await cur.fetchone()
+    d = dict(row)
+    if d.get("image_path"):
+        d["image_url"] = f"/api/faces/images/{os.path.basename(d['image_path'])}"
+    else:
+        d["image_url"] = None
+    return d
+
+
+async def delete_known_face(db: aiosqlite.Connection, face_id: int) -> bool:
+    """Delete a known face record by ID."""
+    cur = await db.execute("SELECT image_path FROM known_faces WHERE id = ?", (face_id,))
+    row = await cur.fetchone()
+    if not row:
+        return False
+    await db.execute("DELETE FROM known_faces WHERE id = ?", (face_id,))
+    await db.commit()
+    return True
+
