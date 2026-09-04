@@ -182,6 +182,19 @@ async def simulate_event(
     return EventResponse(**event_dict)
 
 
+@router.delete("", response_model=dict[str, Any])
+async def clear_all_events(
+    db: aiosqlite.Connection = Depends(get_db),
+) -> dict[str, Any]:
+    """Clear all events from the database."""
+    await db.execute("DELETE FROM events")
+    await db.commit()
+    await ws_manager.broadcast({"type": "EVENTS_CLEARED", "data": {}})
+    return {"status": "success", "message": "All events cleared"}
+
+
+
+
 
 @router.websocket("/stream")
 async def websocket_event_stream(websocket: WebSocket) -> None:

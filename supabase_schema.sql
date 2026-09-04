@@ -81,14 +81,6 @@ VALUES
     ('perimeter_zone', '[[0, 300], [640, 300], [640, 480], [0, 480]]'::jsonb, 'critical')
 ON CONFLICT (name) DO NOTHING;
 
--- Sample Starting Events
-INSERT INTO events (timestamp, event_type, severity, camera_id, track_id, class_name, zone_name, confidence, metadata)
-VALUES
-    (NOW() - INTERVAL '5 minutes', 'intrusion', 'critical', 'cam_01', 101, 'person', 'perimeter_zone', 0.94, '{"zone_type": "border_fence"}'::jsonb),
-    (NOW() - INTERVAL '12 minutes', 'loitering', 'high', 'cam_01', 102, 'person', 'restricted_area_1', 0.89, '{"dwell_time_seconds": 72.5}'::jsonb),
-    (NOW() - INTERVAL '25 minutes', 'face_match', 'medium', 'cam_01', 103, 'person', NULL, 0.92, '{"matched_face": "john_doe"}'::jsonb),
-    (NOW() - INTERVAL '40 minutes', 'anpr', 'medium', 'cam_03', 104, 'car', NULL, 0.96, '{"plate": "DL01AB1234"}'::jsonb)
-ON CONFLICT DO NOTHING;
 
 -- Enable Row Level Security (RLS) if required by Supabase policies
 ALTER TABLE events ENABLE ROW LEVEL SECURITY;
