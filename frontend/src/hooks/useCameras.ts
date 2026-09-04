@@ -7,23 +7,23 @@ export const useCameras = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    const loadCameras = async () => {
-      try {
-        setLoading(true);
-        const data = await apiGetCameras();
-        setCameras(data);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Failed to load cameras");
-      } finally {
-        setLoading(false);
-      }
-    };
+  const loadCameras = async () => {
+    try {
+      setLoading(true);
+      const data = await apiGetCameras();
+      setCameras(data);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to load cameras");
+    } finally {
+      setLoading(false);
+    }
+  };
 
+  useEffect(() => {
     loadCameras();
   }, []);
 
-  return { cameras, loading, error };
+  return { cameras, loading, error, refreshCameras: loadCameras };
 };
 
 export const useCamera = (cameraId: string | undefined) => {
