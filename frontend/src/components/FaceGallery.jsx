@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useEffect } from 'react';
-import { getKnownFaces, addKnownFace, removeKnownFace } from '../services/api1';
+import { getKnownFaces, addKnownFace, removeKnownFace } from '../services/api';
 import LoadingState from './common/LoadingState';
 import EmptyState from './common/EmptyState';
 import ErrorState from './common/ErrorState';

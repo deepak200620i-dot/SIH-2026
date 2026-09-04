@@ -1,4 +1,4 @@
-import { EVENT_TYPES, SEVERITY_ORDER } from './constants1';
+import { EVENT_TYPES, SEVERITY_ORDER } from './constants';
 
 export function formatTimestamp(iso) {
   if (!iso) return '--:--:--';

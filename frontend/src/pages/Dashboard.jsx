@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useSystem } from '../context/SystemContext';
-import { useEvents } from '../hooks/useEvents1';
+import { useEvents } from '../hooks/useEvents';
 import SystemStatus from '../components/dashboard/SystemStatus';
 import ThreatLevel from '../components/dashboard/ThreatLevel';
 import StatsBar from '../components/dashboard/StatsBar';
