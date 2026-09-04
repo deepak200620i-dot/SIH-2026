@@ -1,24 +1,36 @@
-export const SEVERITY_CONFIG = {
-  critical: { bg: 'bg-red-500/10', text: 'text-red-400', border: 'border-red-500/50', dot: 'bg-red-500', label: 'CRITICAL' },
-  high:     { bg: 'bg-orange-500/10', text: 'text-orange-400', border: 'border-orange-500/50', dot: 'bg-orange-500', label: 'HIGH' },
-  medium:   { bg: 'bg-amber-500/10', text: 'text-amber-400', border: 'border-amber-500/50', dot: 'bg-amber-500', label: 'MEDIUM' },
-  low:      { bg: 'bg-emerald-500/10', text: 'text-emerald-400', border: 'border-emerald-500/50', dot: 'bg-emerald-500', label: 'LOW' },
-};
-
+const environment = import.meta.env;
+export const API_BASE_URL = environment.VITE_API_URL || "http://localhost:8000/api";
+export const WS_URL = environment.VITE_WS_URL || "ws://localhost:8000/ws";
 export const EVENT_TYPES = {
-  intrusion: { label: 'Zone Intrusion', icon: 'MdGppBad' },
-  face_match: { label: 'Face Matched', icon: 'MdFace' },
-  face_unknown: { label: 'Unknown Face', icon: 'MdPersonOff' },
-  anpr: { label: 'Plate Detected', icon: 'MdDirectionsCar' },
-  loitering: { label: 'Loitering', icon: 'MdTimer' },
+    PERSON_DETECTED: "Person Detected",
+    VEHICLE_DETECTED: "Vehicle Detected",
+    FACE_RECOGNIZED: "Face Recognized",
+    UNKNOWN_FACE: "Unknown Face",
+    INTRUSION: "Intrusion Detected",
+    ANPR_DETECTED: "Vehicle Plate Detected",
+    UNKNOWN_VEHICLE: "Unknown Vehicle",
+    LOITERING: "Loitering Detected",
+    RESTRICTED_ZONE_ENTRY: "Restricted Zone Entry",
 };
-
-export const STATUS_COLORS = {
-  online: 'bg-emerald-500',
-  active: 'bg-emerald-500',
-  offline: 'bg-red-500',
-  inactive: 'bg-gray-500',
-  connecting: 'bg-amber-500',
+export const SEVERITY_ORDER = {
+    CRITICAL: 0,
+    HIGH: 1,
+    MEDIUM: 2,
+    LOW: 3,
 };
-
-export const SEVERITY_ORDER = ['critical', 'high', 'medium', 'low'];
+export const SEVERITY_COLORS = {
+    CRITICAL: { bg: "bg-red-900", text: "text-red-400", badge: "bg-red-500" },
+    HIGH: { bg: "bg-orange-900", text: "text-orange-400", badge: "bg-orange-500" },
+    MEDIUM: { bg: "bg-yellow-900", text: "text-yellow-400", badge: "bg-yellow-500" },
+    LOW: { bg: "bg-blue-900", text: "text-blue-400", badge: "bg-blue-500" },
+};
+export const CAMERA_STATUS_COLORS = {
+    ONLINE: "bg-green-500",
+    OFFLINE: "bg-red-500",
+    WARNING: "bg-yellow-500",
+};
+export const FACE_MATCH_COLORS = {
+    KNOWN: "text-green-400",
+    UNKNOWN: "text-red-400",
+    PARTIAL_MATCH: "text-yellow-400",
+};
