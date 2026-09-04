@@ -1,41 +1,89 @@
-import { SecurityEvent, EventType } from "@/types";
-import { mockCameras } from "./mockData";
-import { getEventSeverity } from "@/utils/severity";
+import { SecurityEvent } from "@/types";
+import { mapBackendToSecurityEvent } from "./api";
 
 type EventCallback = (event: SecurityEvent) => void;
 
 class WebSocketService {
   private listeners: EventCallback[] = [];
-  private reconnectInterval: NodeJS.Timeout | null = null;
+  private ws: WebSocket | null = null;
+  private reconnectTimeout: any = null;
   private isConnected: boolean = false;
-  private mockEventInterval: NodeJS.Timeout | null = null;
+  private intentionalClose: boolean = false;
 
-  connect(url?: string): Promise<void> {
-    if (this.isConnected) return Promise.resolve();
+  private getWsUrl(): string {
+    if (typeof window !== "undefined" && window.location.host) {
+      const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+      return `${protocol}//${window.location.host}/api/events/stream`;
+    }
+    return "ws://localhost:8000/api/events/stream";
+  }
+
+  connect(customUrl?: string): Promise<void> {
+    if (this.ws && (this.ws.readyState === WebSocket.OPEN || this.ws.readyState === WebSocket.CONNECTING)) {
+      return Promise.resolve();
+    }
+
+    this.intentionalClose = false;
+    const url = customUrl || this.getWsUrl();
+
     return new Promise((resolve) => {
-      // For now, using mock WebSocket
-      // In production, replace with real WebSocket
-      console.log("📡 [WebSocket] Connecting to event stream...");
+      try {
+        console.log(`📡 [WebSocket] Connecting to ${url}...`);
+        this.ws = new WebSocket(url);
 
-      setTimeout(() => {
-        this.isConnected = true;
-        console.log("✅ [WebSocket] Connected");
-        this.startMockEventGenerator();
+        this.ws.onopen = () => {
+          this.isConnected = true;
+          console.log("✅ [WebSocket] Real-time event stream connected");
+          resolve();
+        };
+
+        this.ws.onmessage = (event) => {
+          try {
+            const parsed = JSON.parse(event.data);
+            const payload = parsed.data || parsed;
+            const securityEvent = mapBackendToSecurityEvent(payload);
+            console.log("📨 [WebSocket] Real-time security alert:", securityEvent);
+            this.emit(securityEvent);
+          } catch (err) {
+            console.error("Failed to parse WebSocket message:", err);
+          }
+        };
+
+        this.ws.onclose = () => {
+          this.isConnected = false;
+          console.log("⚠️ [WebSocket] Connection closed");
+          if (!this.intentionalClose) {
+            this.reconnectTimeout = setTimeout(() => this.connect(url), 3000);
+          }
+        };
+
+        this.ws.onerror = (err) => {
+          console.warn("WebSocket error, will retry:", err);
+          this.ws?.close();
+        };
+      } catch (err) {
+        console.warn("Failed to create WebSocket:", err);
         resolve();
-      }, 500);
+      }
     });
   }
 
   disconnect(): void {
+    this.intentionalClose = true;
+    if (this.reconnectTimeout) clearTimeout(this.reconnectTimeout);
+    if (this.ws) {
+      this.ws.close();
+      this.ws = null;
+    }
     this.isConnected = false;
-    if (this.mockEventInterval) clearInterval(this.mockEventInterval);
-    if (this.reconnectInterval) clearInterval(this.reconnectInterval);
-    console.log("❌ [WebSocket] Disconnected");
   }
 
   subscribe(callback: EventCallback): void {
     if (!this.listeners.includes(callback)) {
       this.listeners.push(callback);
+    }
+    if (!this.isConnected) {
+      this.connect();
     }
   }
 
@@ -45,47 +93,6 @@ class WebSocketService {
 
   private emit(event: SecurityEvent): void {
     this.listeners.forEach((cb) => cb(event));
-  }
-
-  private startMockEventGenerator(): void {
-    if (this.mockEventInterval) {
-      clearInterval(this.mockEventInterval);
-    }
-
-    const eventTypes: EventType[] = [
-      "PERSON_DETECTED",
-      "VEHICLE_DETECTED",
-      "INTRUSION",
-      "UNKNOWN_FACE",
-      "LOITERING",
-      "ANPR_DETECTED",
-      "UNKNOWN_VEHICLE",
-    ];
-
-    this.mockEventInterval = setInterval(() => {
-      if (!this.isConnected) return;
-
-      // Random chance to generate event (30%)
-      if (Math.random() > 0.7) {
-        const randomEventType = eventTypes[Math.floor(Math.random() * eventTypes.length)];
-        const randomCamera = mockCameras[Math.floor(Math.random() * mockCameras.length)];
-
-        const event: SecurityEvent = {
-          id: Math.random().toString(36).substr(2, 9),
-          cameraId: randomCamera.id,
-          eventType: randomEventType,
-          severity: getEventSeverity(randomEventType),
-          timestamp: new Date().toISOString(),
-          confidence: Math.floor(Math.random() * 15) + 85,
-          trackId: Math.floor(Math.random() * 100),
-          description: `${randomEventType.replace(/_/g, " ")} at ${randomCamera.name}`,
-          status: "ACTIVE",
-        };
-
-        console.log(`📨 [WebSocket] Event received:`, event);
-        this.emit(event);
-      }
-    }, 5000); // Generate events every 5 seconds (30% chance)
   }
 
   isReady(): boolean {
