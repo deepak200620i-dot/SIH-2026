@@ -1,14 +1,14 @@
 import React, { useState, useEffect } from "react";
-import { Bell, LogOut, Settings, AlertCircle } from "lucide-react";
+import { Bell, LogOut, Settings } from "lucide-react";
+
 import { getCurrentDateTime } from "@/utils/date";
 
 interface TopBarProps {
   title?: string;
   alertCount?: number;
-  isDemoMode?: boolean;
 }
 
-export const TopBar: React.FC<TopBarProps> = ({ title, alertCount = 0, isDemoMode = false }) => {
+export const TopBar: React.FC<TopBarProps> = ({ title, alertCount = 0 }) => {
   const [currentTime, setCurrentTime] = useState(getCurrentDateTime());
 
   useEffect(() => {
@@ -26,13 +26,8 @@ export const TopBar: React.FC<TopBarProps> = ({ title, alertCount = 0, isDemoMod
           <h1 className="text-white font-bold text-lg">IBVAP</h1>
           <p className="text-gray-400 text-xs">Intelligent Border Video Analytics</p>
         </div>
-        {isDemoMode && (
-          <div className="ml-4 px-3 py-1 bg-purple-900 border border-purple-500 rounded text-purple-200 text-xs font-bold flex items-center gap-2">
-            <AlertCircle size={14} />
-            DEMO MODE
-          </div>
-        )}
       </div>
+
 
       {/* Center */}
       {title && <h2 className="text-white font-semibold">{title}</h2>}

@@ -1,4 +1,3 @@
-import { mockCameras, mockSecurityEvents, mockAlerts, mockPersons, mockFaceEvents, mockANPREvents, mockZones, mockSystemStatus, mockAnalyticsData, } from "./mockData";
 const getDefaultApiBase = () => {
     if (typeof window !== "undefined" && window.location.origin) {
         return window.location.origin;
@@ -79,7 +78,7 @@ export const apiGetCameras = async () => {
         const res = await fetch(`${API_BASE}/api/cameras`);
         if (res.ok) {
             const data = await res.json();
-            if (Array.isArray(data) && data.length > 0) {
+            if (Array.isArray(data)) {
                 return data.map((c) => ({
                     id: c.id,
                     name: c.name || c.id,
@@ -95,9 +94,9 @@ export const apiGetCameras = async () => {
         }
     }
     catch (err) {
-        console.warn("Falling back to mock cameras:", err);
+        console.warn("Failed to fetch cameras:", err);
     }
-    return mockCameras;
+    return [];
 };
 export const apiGetCamera = async (cameraId) => {
     const cams = await apiGetCameras();
@@ -111,8 +110,8 @@ export const apiGetCameraStatus = async (cameraId) => {
             const items = data.items || [];
             return {
                 cameraId,
-                peopleCount: items.filter((e) => e.class_name === "person").length || 1,
-                vehicleCount: items.filter((e) => e.class_name === "car").length || 0,
+                peopleCount: items.filter((e) => e.class_name === "person").length,
+                vehicleCount: items.filter((e) => e.class_name === "car").length,
                 lastAlert: items[0] ? mapBackendToAlert(items[0]) : null,
             };
         }
@@ -120,7 +119,7 @@ export const apiGetCameraStatus = async (cameraId) => {
     catch (err) { }
     return {
         cameraId,
-        peopleCount: 1,
+        peopleCount: 0,
         vehicleCount: 0,
         lastAlert: null,
     };
@@ -149,16 +148,14 @@ export const apiGetEvents = async (page = 1, pageSize = 20, filters) => {
         }
     }
     catch (err) {
-        console.warn("Falling back to mock events:", err);
+        console.warn("Failed to fetch events:", err);
     }
-    const start = (page - 1) * pageSize;
-    const items = mockSecurityEvents.slice(start, start + pageSize);
     return {
-        items,
-        total: mockSecurityEvents.length,
+        items: [],
+        total: 0,
         page,
         pageSize,
-        hasMore: start + pageSize < mockSecurityEvents.length,
+        hasMore: false,
     };
 };
 export const apiGetEvent = async (eventId) => {
@@ -170,7 +167,7 @@ export const apiGetEvent = async (eventId) => {
         }
     }
     catch (err) { }
-    return mockSecurityEvents.find((e) => e.id === eventId) || null;
+    return null;
 };
 // ============ ALERTS ============
 export const apiGetAlerts = async (page = 1, pageSize = 20, filters) => {
@@ -196,16 +193,14 @@ export const apiGetAlerts = async (page = 1, pageSize = 20, filters) => {
         }
     }
     catch (err) {
-        console.warn("Falling back to mock alerts:", err);
+        console.warn("Failed to fetch alerts:", err);
     }
-    const start = (page - 1) * pageSize;
-    const items = mockAlerts.slice(start, start + pageSize);
     return {
-        items,
-        total: mockAlerts.length,
+        items: [],
+        total: 0,
         page,
         pageSize,
-        hasMore: start + pageSize < mockAlerts.length,
+        hasMore: false,
     };
 };
 export const apiGetAlert = async (alertId) => {
@@ -213,7 +208,7 @@ export const apiGetAlert = async (alertId) => {
     const evt = await apiGetEvent(cleanId);
     if (evt)
         return mapBackendToAlert(evt);
-    return mockAlerts.find((a) => a.id === alertId) || null;
+    return null;
 };
 export const apiUpdateAlertStatus = async (alertId, status) => {
     return true;
@@ -224,7 +219,7 @@ export const apiGetPersons = async () => {
         const res = await fetch(`${API_BASE}/api/faces`);
         if (res.ok) {
             const data = await res.json();
-            if (Array.isArray(data) && data.length > 0) {
+            if (Array.isArray(data)) {
                 return data.map((f) => ({
                     id: String(f.id),
                     name: f.name,
@@ -238,7 +233,7 @@ export const apiGetPersons = async () => {
         }
     }
     catch (err) { }
-    return mockPersons;
+    return [];
 };
 export const apiAddPerson = async (person) => {
     return {
@@ -267,36 +262,32 @@ export const apiGetFaceEvents = async (page = 1, pageSize = 20) => {
         if (res.ok) {
             const data = await res.json();
             const faceEvts = (data.items || []).filter((e) => ["face_match", "face_unknown"].includes(e.event_type));
-            if (faceEvts.length > 0) {
-                const items = faceEvts.map((e) => ({
-                    id: String(e.id),
-                    cameraId: e.camera_id || "cam_01",
-                    timestamp: e.timestamp,
-                    faceImageUrl: e.snapshot ? `${API_BASE}/api/evidence/${e.snapshot.replace(/^data\/evidence\//, "")}` : "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150",
-                    matchStatus: (e.event_type === "face_match" ? "KNOWN" : "UNKNOWN"),
-                    similarity: e.confidence ? Math.round(e.confidence * 100) : 85,
-                    matchedPersonName: e.face_name,
-                    confidence: e.confidence ? Math.round(e.confidence * 100) : 90,
-                }));
-                return {
-                    items,
-                    total: data.total ?? items.length,
-                    page,
-                    pageSize,
-                    hasMore: offset + pageSize < (data.total ?? items.length),
-                };
-            }
+            const items = faceEvts.map((e) => ({
+                id: String(e.id),
+                cameraId: e.camera_id || "cam_01",
+                timestamp: e.timestamp,
+                faceImageUrl: e.snapshot ? `${API_BASE}/api/evidence/${e.snapshot.replace(/^data\/evidence\//, "")}` : "/favicon.svg",
+                matchStatus: (e.event_type === "face_match" ? "KNOWN" : "UNKNOWN"),
+                similarity: e.confidence ? Math.round(e.confidence * 100) : 85,
+                matchedPersonName: e.face_name,
+                confidence: e.confidence ? Math.round(e.confidence * 100) : 90,
+            }));
+            return {
+                items,
+                total: items.length,
+                page,
+                pageSize,
+                hasMore: offset + pageSize < items.length,
+            };
         }
     }
     catch (err) { }
-    const start = (page - 1) * pageSize;
-    const items = mockFaceEvents.slice(start, start + pageSize);
     return {
-        items,
-        total: mockFaceEvents.length,
+        items: [],
+        total: 0,
         page,
         pageSize,
-        hasMore: start + pageSize < mockFaceEvents.length,
+        hasMore: false,
     };
 };
 // ============ ANPR EVENTS ============
@@ -307,36 +298,32 @@ export const apiGetANPREvents = async (page = 1, pageSize = 20) => {
         if (res.ok) {
             const data = await res.json();
             const anprEvts = (data.items || []).filter((e) => e.event_type === "anpr");
-            if (anprEvts.length > 0) {
-                const items = anprEvts.map((e) => ({
-                    id: String(e.id),
-                    cameraId: e.camera_id || "cam_03",
-                    timestamp: e.timestamp,
-                    vehicleImageUrl: "https://images.unsplash.com/photo-1549399542-7e3f8b79c341?w=400",
-                    plateImageUrl: "https://images.unsplash.com/photo-1549399542-7e3f8b79c341?w=200",
-                    plateNumber: e.plate_text || "DL01AB1234",
-                    ocrConfidence: e.confidence ? Math.round(e.confidence * 100) : 95,
-                    status: "AUTHORIZED",
-                }));
-                return {
-                    items,
-                    total: data.total ?? items.length,
-                    page,
-                    pageSize,
-                    hasMore: offset + pageSize < (data.total ?? items.length),
-                };
-            }
+            const items = anprEvts.map((e) => ({
+                id: String(e.id),
+                cameraId: e.camera_id || "cam_03",
+                timestamp: e.timestamp,
+                vehicleImageUrl: e.snapshot ? `${API_BASE}/api/evidence/${e.snapshot.replace(/^data\/evidence\//, "")}` : "/favicon.svg",
+                plateImageUrl: e.snapshot ? `${API_BASE}/api/evidence/${e.snapshot.replace(/^data\/evidence\//, "")}` : "/favicon.svg",
+                plateNumber: e.plate_text || "UNKNOWN",
+                ocrConfidence: e.confidence ? Math.round(e.confidence * 100) : 95,
+                status: "AUTHORIZED",
+            }));
+            return {
+                items,
+                total: items.length,
+                page,
+                pageSize,
+                hasMore: offset + pageSize < items.length,
+            };
         }
     }
     catch (err) { }
-    const start = (page - 1) * pageSize;
-    const items = mockANPREvents.slice(start, start + pageSize);
     return {
-        items,
-        total: mockANPREvents.length,
+        items: [],
+        total: 0,
         page,
         pageSize,
-        hasMore: start + pageSize < mockANPREvents.length,
+        hasMore: false,
     };
 };
 // ============ ZONES ============
@@ -359,7 +346,7 @@ export const apiGetZones = async () => {
         }
     }
     catch (err) { }
-    return mockZones;
+    return [];
 };
 export const apiAddZone = async (zone) => {
     return {
@@ -382,55 +369,108 @@ export const apiDeleteZone = async (zoneId) => {
 // ============ SYSTEM STATUS ============
 export const apiGetSystemStatus = async () => {
     try {
-        const res = await fetch(`${API_BASE}/health`);
-        const isOnline = res.ok;
+        const [healthRes, cams] = await Promise.all([
+            fetch(`${API_BASE}/health`),
+            apiGetCameras(),
+        ]);
+        const isOnline = healthRes.ok;
+        const onlineCams = cams.filter((c) => c.status === "ONLINE").length;
         return {
             aiEngine: isOnline ? "ONLINE" : "OFFLINE",
             videoProcessing: isOnline ? "ONLINE" : "OFFLINE",
             database: isOnline ? "ONLINE" : "OFFLINE",
             apiServer: isOnline ? "ONLINE" : "OFFLINE",
             websocket: isOnline ? "CONNECTED" : "DISCONNECTED",
-            camerasOnline: 4,
-            camerasTotal: 4,
+            camerasOnline: onlineCams,
+            camerasTotal: cams.length,
             aiInferenceMs: 14.2,
             apiLatencyMs: 8.5,
             streamFps: 30.0,
         };
     }
     catch (err) {
-        return mockSystemStatus;
+        return {
+            aiEngine: "OFFLINE",
+            videoProcessing: "OFFLINE",
+            database: "OFFLINE",
+            apiServer: "OFFLINE",
+            websocket: "DISCONNECTED",
+            camerasOnline: 0,
+            camerasTotal: 0,
+            aiInferenceMs: 0,
+            apiLatencyMs: 0,
+            streamFps: 0,
+        };
     }
 };
 // ============ ANALYTICS ============
 export const apiGetAnalytics = async () => {
-    return mockAnalyticsData;
+    try {
+        const res = await fetch(`${API_BASE}/api/events?limit=100`);
+        if (res.ok) {
+            const data = await res.json();
+            const events = data.items || [];
+            // Group by camera
+            const camMap = {};
+            const typeMap = {};
+            events.forEach((e) => {
+                const cam = e.camera_id || "cam_01";
+                camMap[cam] = (camMap[cam] || 0) + 1;
+                const t = mapEventType(e.event_type);
+                typeMap[t] = (typeMap[t] || 0) + 1;
+            });
+            const intrusionsByCamera = Object.entries(camMap).map(([camera, count]) => ({ camera, count }));
+            const eventDistribution = Object.entries(typeMap).map(([type, count]) => ({ type: type, count }));
+            return {
+                alertsTrend: [],
+                intrusionsByCamera,
+                unknownFacesTrend: [],
+                vehicleDetections: [],
+                personDetections: [],
+                eventDistribution,
+                cameraActivity: intrusionsByCamera.map((i) => ({ camera: i.camera, events: i.count })),
+            };
+        }
+    }
+    catch (err) { }
+    return {
+        alertsTrend: [],
+        intrusionsByCamera: [],
+        unknownFacesTrend: [],
+        vehicleDetections: [],
+        personDetections: [],
+        eventDistribution: [],
+        cameraActivity: [],
+    };
 };
 // ============ DASHBOARD STATS ============
 export const apiGetDashboardStats = async () => {
     try {
-        const res = await fetch(`${API_BASE}/api/events/stats`);
-        if (res.ok) {
-            const stats = await res.json();
-            const byType = stats.by_type || {};
-            const bySev = stats.by_severity || {};
-            return {
-                camerasOnline: stats.active_cameras ?? 4,
-                camerasTotal: 4,
-                activeAlerts: (bySev.critical || 0) + (bySev.high || 0),
-                peopleDetected: byType.intrusion || 0,
-                vehiclesDetected: byType.anpr || 0,
-                unknownFaces: byType.face_unknown || 0,
-                intrusionsToday: byType.intrusion || 0,
-                threatLevel: (bySev.critical || 0) > 0 ? "CRITICAL" : (bySev.high || 0) > 0 ? "HIGH" : "LOW",
-            };
-        }
+        const [statsRes, cams] = await Promise.all([
+            fetch(`${API_BASE}/api/events/stats`),
+            apiGetCameras(),
+        ]);
+        const stats = statsRes.ok ? await statsRes.json() : {};
+        const byType = stats.by_type || {};
+        const bySev = stats.by_severity || {};
+        const onlineCams = cams.filter((c) => c.status === "ONLINE").length;
+        return {
+            camerasOnline: onlineCams,
+            camerasTotal: cams.length,
+            activeAlerts: (bySev.critical || 0) + (bySev.high || 0) + (bySev.medium || 0),
+            peopleDetected: byType.intrusion || 0,
+            vehiclesDetected: byType.anpr || 0,
+            unknownFaces: byType.face_unknown || 0,
+            intrusionsToday: byType.intrusion || 0,
+            threatLevel: (bySev.critical || 0) > 0 ? "CRITICAL" : (bySev.high || 0) > 0 ? "HIGH" : "LOW",
+        };
     }
     catch (err) {
-        console.warn("Falling back to mock dashboard stats:", err);
+        console.warn("Failed to fetch dashboard stats:", err);
     }
     return {
-        camerasOnline: 4,
-        camerasTotal: 4,
+        camerasOnline: 0,
+        camerasTotal: 0,
         activeAlerts: 0,
         peopleDetected: 0,
         vehiclesDetected: 0,
