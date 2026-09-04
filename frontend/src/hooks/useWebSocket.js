@@ -1,42 +1,23 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
-import WebSocketManager from '../services/websocket';
-
-const MAX_EVENTS = 100;
-
-export function useWebSocket() {
-  const [status, setStatus] = useState('disconnected');
-  const [events, setEvents] = useState([]);
-  const managerRef = useRef(null);
-
-  useEffect(() => {
-    const manager = new WebSocketManager();
-    managerRef.current = manager;
-
-    const unsubStatus = manager.onStatusChange((newStatus) => {
-      setStatus(newStatus);
-    });
-
-    const unsubEvent = manager.onEvent((event) => {
-      setEvents((prev) => {
-        const updated = [event, ...prev];
-        return updated.slice(0, MAX_EVENTS);
-      });
-    });
-
-    manager.connect();
-
-    return () => {
-      unsubStatus();
-      unsubEvent();
-      manager.disconnect();
-    };
-  }, []);
-
-  const isConnected = status === 'connected';
-
-  const clearEvents = useCallback(() => {
-    setEvents([]);
-  }, []);
-
-  return { status, events, isConnected, clearEvents };
-}
+import { useEffect } from "react";
+import { wsService } from "@/services/websocket";
+export const useWebSocket = (onEvent) => {
+    useEffect(() => {
+        let isSubscribed = true;
+        const initWebSocket = async () => {
+            try {
+                await wsService.connect();
+                if (isSubscribed) {
+                    wsService.subscribe(onEvent);
+                }
+            }
+            catch (error) {
+                console.error("WebSocket connection failed:", error);
+            }
+        };
+        initWebSocket();
+        return () => {
+            isSubscribed = false;
+            wsService.unsubscribe(onEvent);
+        };
+    }, [onEvent]);
+};
