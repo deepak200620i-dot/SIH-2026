@@ -19,7 +19,7 @@ from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from src.api.models import StatsResponse
-from src.api.routes import cameras_router, config_router, events_router, faces_router
+from src.api.routes import cameras_router, config_router, events_router, faces_router, video_router
 from src.db.crud import get_stats
 from src.db.database import get_db, init_db
 
@@ -30,6 +30,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     # Ensure necessary data directories exist
     os.makedirs("data/evidence", exist_ok=True)
     os.makedirs("data/faces", exist_ok=True)
+    os.makedirs("data/uploads", exist_ok=True)
     os.makedirs("data", exist_ok=True)
 
     # Initialize database schema
@@ -58,6 +59,7 @@ app.include_router(events_router)
 app.include_router(cameras_router)
 app.include_router(config_router)
 app.include_router(faces_router)
+app.include_router(video_router)
 
 # Mount static files for evidence snapshots and face gallery images
 os.makedirs("data/evidence", exist_ok=True)
