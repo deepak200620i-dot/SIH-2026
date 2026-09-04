@@ -1,5 +1,5 @@
 import React from 'react';
-import { STATUS_COLORS } from '../../utils/constants1';
+import { STATUS_COLORS } from '../../utils/constants';
 
 export default function StatusIndicator({ status, label, size = 'md' }) {
   const normalizedStatus = (status || 'offline').toLowerCase();

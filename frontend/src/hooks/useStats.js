@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { getStats } from '../services/api1';
+import { getStats } from '../services/api';
 
 export function useStats() {
   const [stats, setStats] = useState(null);
@@ -22,6 +22,8 @@ export function useStats() {
 
   useEffect(() => {
     fetchStats();
+    const interval = setInterval(fetchStats, 10000); // refresh every 10 seconds
+    return () => clearInterval(interval);
   }, [fetchStats]);
 
   return { stats, loading, error, refetch: fetchStats };

@@ -1,104 +1,115 @@
-import { mockCameras } from "./mockData";
-import { getEventSeverity } from "@/utils/severity";
-class WebSocketService {
-    constructor() {
-        Object.defineProperty(this, "listeners", {
-            enumerable: true,
-            configurable: true,
-            writable: true,
-            value: []
-        });
-        Object.defineProperty(this, "reconnectInterval", {
-            enumerable: true,
-            configurable: true,
-            writable: true,
-            value: null
-        });
-        Object.defineProperty(this, "isConnected", {
-            enumerable: true,
-            configurable: true,
-            writable: true,
-            value: false
-        });
-        Object.defineProperty(this, "mockEventInterval", {
-            enumerable: true,
-            configurable: true,
-            writable: true,
-            value: null
-        });
+export const WS_URL = import.meta.env.VITE_WS_URL || 'ws://localhost:8000/api/events/stream';
+
+export default class WebSocketManager {
+  constructor(url = WS_URL) {
+    this.url = url;
+    this.ws = null;
+    this.status = 'disconnected';
+    this.eventListeners = [];
+    this.statusListeners = [];
+    this.reconnectAttempts = 0;
+    this.maxReconnectDelay = 16000;
+    this.baseDelay = 1000;
+    this.reconnectTimer = null;
+    this.intentionalClose = false;
+  }
+
+  connect() {
+    if (this.ws && (this.ws.readyState === WebSocket.OPEN || this.ws.readyState === WebSocket.CONNECTING)) {
+      return;
     }
-    connect(url) {
-        if (this.isConnected)
-            return Promise.resolve();
-        return new Promise((resolve) => {
-            // For now, using mock WebSocket
-            // In production, replace with real WebSocket
-            console.log("📡 [WebSocket] Connecting to event stream...");
-            setTimeout(() => {
-                this.isConnected = true;
-                console.log("✅ [WebSocket] Connected");
-                this.startMockEventGenerator();
-                resolve();
-            }, 500);
-        });
-    }
-    disconnect() {
-        this.isConnected = false;
-        if (this.mockEventInterval)
-            clearInterval(this.mockEventInterval);
-        if (this.reconnectInterval)
-            clearInterval(this.reconnectInterval);
-        console.log("❌ [WebSocket] Disconnected");
-    }
-    subscribe(callback) {
-        if (!this.listeners.includes(callback)) {
-            this.listeners.push(callback);
+
+    this.intentionalClose = false;
+    this.setStatus('connecting');
+
+    try {
+      this.ws = new WebSocket(this.url);
+
+      this.ws.onopen = () => {
+        this.reconnectAttempts = 0;
+        this.setStatus('connected');
+      };
+
+      this.ws.onmessage = (message) => {
+        try {
+          const parsed = JSON.parse(message.data);
+          const payload = parsed.data || parsed;
+          this.notifyEventListeners(payload);
+        } catch (error) {
+          console.error('Failed to parse WebSocket message:', error);
         }
-    }
-    unsubscribe(callback) {
-        this.listeners = this.listeners.filter((cb) => cb !== callback);
-    }
-    emit(event) {
-        this.listeners.forEach((cb) => cb(event));
-    }
-    startMockEventGenerator() {
-        if (this.mockEventInterval) {
-            clearInterval(this.mockEventInterval);
+      };
+
+      this.ws.onclose = () => {
+        if (!this.intentionalClose) {
+          this.reconnect();
+        } else {
+          this.setStatus('disconnected');
         }
-        const eventTypes = [
-            "PERSON_DETECTED",
-            "VEHICLE_DETECTED",
-            "INTRUSION",
-            "UNKNOWN_FACE",
-            "LOITERING",
-            "ANPR_DETECTED",
-            "UNKNOWN_VEHICLE",
-        ];
-        this.mockEventInterval = setInterval(() => {
-            if (!this.isConnected)
-                return;
-            // Random chance to generate event (30%)
-            if (Math.random() > 0.7) {
-                const randomEventType = eventTypes[Math.floor(Math.random() * eventTypes.length)];
-                const randomCamera = mockCameras[Math.floor(Math.random() * mockCameras.length)];
-                const event = {
-                    id: Math.random().toString(36).substr(2, 9),
-                    cameraId: randomCamera.id,
-                    eventType: randomEventType,
-                    severity: getEventSeverity(randomEventType),
-                    timestamp: new Date().toISOString(),
-                    confidence: Math.floor(Math.random() * 15) + 85,
-                    trackId: Math.floor(Math.random() * 100),
-                    description: `${randomEventType.replace(/_/g, " ")} at ${randomCamera.name}`,
-                    status: "ACTIVE",
-                };
-                console.log(`📨 [WebSocket] Event received:`, event);
-                this.emit(event);
-            }
-        }, 5000); // Generate events every 5 seconds (30% chance)
+      };
+
+      this.ws.onerror = (error) => {
+        console.error('WebSocket error:', error);
+      };
+    } catch (error) {
+      console.error('Failed to create WebSocket:', error);
+      this.reconnect();
     }
-    isReady() {
-        return this.isConnected;
+  }
+
+  disconnect() {
+    this.intentionalClose = true;
+    if (this.reconnectTimer) {
+      clearTimeout(this.reconnectTimer);
+      this.reconnectTimer = null;
     }
+    if (this.ws) {
+      this.ws.close();
+      this.ws = null;
+    }
+    this.setStatus('disconnected');
+  }
+
+  reconnect() {
+    this.setStatus('reconnecting');
+    const delay = Math.min(this.baseDelay * Math.pow(2, this.reconnectAttempts), this.maxReconnectDelay);
+    this.reconnectAttempts++;
+
+    this.reconnectTimer = setTimeout(() => {
+      this.connect();
+    }, delay);
+  }
+
+  onEvent(callback) {
+    this.eventListeners.push(callback);
+    return () => {
+      this.eventListeners = this.eventListeners.filter(cb => cb !== callback);
+    };
+  }
+
+  onStatusChange(callback) {
+    this.statusListeners.push(callback);
+    return () => {
+      this.statusListeners = this.statusListeners.filter(cb => cb !== callback);
+    };
+  }
+
+  getStatus() {
+    return this.status;
+  }
+
+  setStatus(newStatus) {
+    if (this.status !== newStatus) {
+      this.status = newStatus;
+      this.notifyStatusListeners();
+    }
+  }
+
+  notifyEventListeners(event) {
+    this.eventListeners.forEach(callback => callback(event));
+  }
+
+  notifyStatusListeners() {
+    this.statusListeners.forEach(callback => callback(this.status));
+  }
 }
-export const wsService = new WebSocketService();
