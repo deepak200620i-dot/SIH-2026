@@ -167,14 +167,28 @@ class VideoPipeline:
             if evt:
                 generated_events.append(evt)
 
-        # Face Events
+        # Face Events (Debounced per person ID)
         for fm in face_matches:
+            # Only trigger if face is recognized or if face_unknown cooldown passes
             event_type = "face_match" if fm.is_known else "face_unknown"
+            
+            # Use stable unknown_person_id if available to avoid duplicate IDs
+            tid = fm.unknown_person_id if fm.unknown_person_id is not None else fm.person_track_id
+
+            # If there are restricted zones on this camera, check if person is in a zone
+            in_restricted_zone = any(
+                VirtualFence.is_inside(fm.face_center, z.np_polygon) for z in self.fence.zones
+            ) if self.fence.zones else False
+
+            # Unknown face is an active security alert if inside restricted zone or on restricted feeds
+            severity_override = "high" if in_restricted_zone else "low"
+
             evt = self.event_engine.process_event(
                 event_type=event_type,
-                track_id=fm.person_track_id,
+                track_id=tid,
                 class_name="person",
                 face_name=fm.name,
+                zone_severity=severity_override,
                 confidence=fm.confidence,
                 bbox=list(fm.face_bbox),
                 frame=frame,
@@ -199,6 +213,28 @@ class VideoPipeline:
             )
             if evt:
                 generated_events.append(evt)
+
+        # Entity Detection for uploaded recorded video evaluation (informational log only, low severity)
+        if camera_id.startswith("upload_") and not generated_events:
+            for obj in tracked_objects:
+                is_person = obj.class_name == "person"
+                is_vehicle = obj.class_name in ("car", "truck", "bus", "motorcycle")
+                if is_person or is_vehicle:
+                    evt_type = "person_detected" if is_person else "vehicle_detected"
+                    evt = self.event_engine.process_event(
+                        event_type=evt_type,
+                        track_id=obj.track_id,
+                        class_name=obj.class_name,
+                        zone_severity="low",
+                        confidence=obj.confidence,
+                        bbox=list(obj.bbox_xyxy),
+                        frame=frame,
+                        camera_id=camera_id,
+                        timestamp_sec=ts,
+                    )
+                    if evt:
+                        generated_events.append(evt)
+                        break
 
         # 7. Draw Visual Annotations
         annotated = frame.copy()
@@ -228,9 +264,16 @@ class VideoPipeline:
             total_ms=total_ms,
         )
 
+    def update_zones(self, zones: list[dict[str, Any]]) -> None:
+        """Dynamically update virtual fence zones and loitering detector."""
+        self.fence.update_zones(zones)
+        self.loitering.zones = self.fence.zones
+
     def reset(self) -> None:
         """Reset internal pipeline states."""
         self.tracker.reset()
         self.fence.reset()
         self.loitering.reset()
         self.event_engine.reset()
+        if self.face_recognizer:
+            self.face_recognizer.reset()

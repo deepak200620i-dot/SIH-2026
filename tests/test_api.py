@@ -137,6 +137,34 @@ def test_config_fence_api(client):
     assert res_json["config"]["cooldown_seconds"] == 20.0
 
 
+def test_zones_api(client):
+    res_get = client.get("/api/zones")
+    assert res_get.status_code == 200
+
+    payload = {
+        "name": "Perimeter Zone Alpha",
+        "camera_id": "device_webcam",
+        "polygon": [[50, 50], [300, 50], [300, 300], [50, 300]],
+        "severity": "critical",
+    }
+    res_post = client.post("/api/zones", json=payload)
+    assert res_post.status_code == 200
+    created = res_post.json()
+    assert created["name"] == "Perimeter Zone Alpha"
+    assert created["severity"] == "critical"
+    zone_id = created["id"]
+
+    # Verify in list
+    res_list = client.get("/api/zones")
+    assert res_list.status_code == 200
+    names = [z["name"] for z in res_list.json()]
+    assert "Perimeter Zone Alpha" in names
+
+    # Delete zone
+    res_del = client.delete(f"/api/zones/{zone_id}")
+    assert res_del.status_code == 200
+
+
 def test_websocket_stream(client):
     with client.websocket_connect("/api/events/stream") as websocket:
         # Trigger event creation via REST

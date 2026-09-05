@@ -225,3 +225,71 @@ async def delete_known_face(db: aiosqlite.Connection, face_id: int) -> bool:
     await db.commit()
     return True
 
+
+async def get_fence_zones(
+    db: aiosqlite.Connection,
+    camera_id: Optional[str] = None,
+) -> list[dict[str, Any]]:
+    """List all configured fence zones, optionally filtering by camera_id."""
+    if camera_id and camera_id != "all":
+        cur = await db.execute(
+            "SELECT * FROM fence_zones WHERE camera_id = ? OR camera_id = 'all' ORDER BY id ASC",
+            (camera_id,),
+        )
+    else:
+        cur = await db.execute("SELECT * FROM fence_zones ORDER BY id ASC")
+    rows = await cur.fetchall()
+    results = []
+    for row in rows:
+        d = dict(row)
+        if "polygon" in d and isinstance(d["polygon"], str):
+            try:
+                d["polygon"] = json.loads(d["polygon"])
+            except Exception:
+                pass
+        results.append(d)
+    return results
+
+
+async def create_fence_zone(
+    db: aiosqlite.Connection,
+    name: str,
+    polygon: list[list[int]],
+    severity: str = "high",
+    camera_id: str = "all",
+) -> dict[str, Any]:
+    """Insert or update a fence zone."""
+    poly_json = json.dumps(polygon)
+    query = """
+        INSERT INTO fence_zones (name, camera_id, polygon, severity)
+        VALUES (?, ?, ?, ?)
+        ON CONFLICT(name) DO UPDATE SET
+            camera_id=excluded.camera_id,
+            polygon=excluded.polygon,
+            severity=excluded.severity
+    """
+    cursor = await db.execute(query, (name, camera_id, poly_json, severity))
+    await db.commit()
+
+    cur = await db.execute("SELECT * FROM fence_zones WHERE name = ?", (name,))
+    row = await cur.fetchone()
+    d = dict(row)
+    if "polygon" in d and isinstance(d["polygon"], str):
+        try:
+            d["polygon"] = json.loads(d["polygon"])
+        except Exception:
+            pass
+    return d
+
+
+async def delete_fence_zone(db: aiosqlite.Connection, zone_id: int) -> bool:
+    """Delete a fence zone by ID."""
+    cur = await db.execute("SELECT id FROM fence_zones WHERE id = ?", (zone_id,))
+    row = await cur.fetchone()
+    if not row:
+        return False
+    await db.execute("DELETE FROM fence_zones WHERE id = ?", (zone_id,))
+    await db.commit()
+    return True
+
+

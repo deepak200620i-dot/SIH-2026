@@ -97,6 +97,10 @@ class EventEngine:
             return "medium"
         elif event_type == "loitering":
             return "high"
+        elif event_type in ("person_detected", "person"):
+            return "medium"
+        elif event_type in ("vehicle_detected", "vehicle"):
+            return "low"
 
         return "medium"
 
@@ -114,9 +118,10 @@ class EventEngine:
             timestamp = time.time()
 
         key = (track_id, event_type, zone_name)
+        cooldown = 60.0 if "face" in event_type else self.cooldown_seconds
         if key in self._last_event:
             elapsed = timestamp - self._last_event[key]
-            if elapsed < self.cooldown_seconds:
+            if elapsed < cooldown:
                 return False
 
         self._last_event[key] = timestamp

@@ -222,6 +222,9 @@ export interface ProcessFrameResult {
     class_name: string;
     confidence: number;
     bbox: number[];
+    face_name?: string | null;
+    is_known_face?: boolean | null;
+    plate_text?: string | null;
   }>;
   events_triggered: any[];
 }
@@ -244,9 +247,11 @@ export const apiProcessWebcamFrame = async (
 
     if (res.ok) {
       return await res.json();
+    } else {
+      console.warn(`[Webcam API] process-frame failed: HTTP ${res.status}`);
     }
   } catch (err) {
-    // Silently handle frame processing network dips
+    console.warn("[Webcam API] Network error during frame processing:", err);
   }
   return null;
 };
@@ -474,31 +479,95 @@ export const apiGetANPREvents = async (
 };
 
 // ============ ZONES ============
-export const apiGetZones = async (): Promise<Zone[]> => {
+export interface FenceZoneItem {
+  id: number;
+  name: string;
+  camera_id: string;
+  polygon: number[][]; // [[x1, y1], [x2, y2], ...]
+  severity: "critical" | "high" | "medium" | "low";
+  created_at?: string;
+}
+
+export const apiGetFenceZones = async (cameraId?: string): Promise<FenceZoneItem[]> => {
   try {
-    const res = await fetch(`${API_BASE}/api/config/fence`);
+    const url = cameraId && cameraId !== "all" 
+      ? `${API_BASE}/api/zones?camera_id=${cameraId}` 
+      : `${API_BASE}/api/zones`;
+    const res = await fetch(url);
     if (res.ok) {
-      const data = await res.json();
-      const zones = data.zones || [];
-      if (zones.length > 0) {
-        return zones.map((z: any, idx: number) => ({
-          id: `zone-${idx + 1}`,
-          cameraId: "cam_01",
-          name: z.name,
-          type: z.severity === "critical" ? "HIGH_SECURITY" : "RESTRICTED",
-          status: "ACTIVE",
-          polygon: (z.polygon || []).map(([x, y]: [number, number]) => ({ x, y })),
-        }));
-      }
+      return await res.json();
     }
-  } catch (err) {}
+  } catch (err) {
+    console.warn("Failed to fetch zones:", err);
+  }
+  return [];
+};
+
+export const apiCreateFenceZone = async (zone: {
+  name: string;
+  polygon: number[][];
+  severity: string;
+  camera_id?: string;
+}): Promise<FenceZoneItem | null> => {
+  try {
+    const res = await fetch(`${API_BASE}/api/zones`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        name: zone.name,
+        polygon: zone.polygon,
+        severity: zone.severity.toLowerCase(),
+        camera_id: zone.camera_id || "all",
+      }),
+    });
+    if (res.ok) {
+      return await res.json();
+    }
+  } catch (err) {
+    console.error("Failed to create zone:", err);
+  }
+  return null;
+};
+
+export const apiDeleteFenceZone = async (zoneId: number): Promise<boolean> => {
+  try {
+    const res = await fetch(`${API_BASE}/api/zones/${zoneId}`, {
+      method: "DELETE",
+    });
+    return res.ok;
+  } catch (err) {
+    console.error("Failed to delete zone:", err);
+    return false;
+  }
+};
+
+export const apiGetZones = async (): Promise<Zone[]> => {
+  const backendZones = await apiGetFenceZones();
+  if (backendZones.length > 0) {
+    return backendZones.map((z) => ({
+      id: String(z.id),
+      cameraId: z.camera_id,
+      name: z.name,
+      type: z.severity === "critical" ? "HIGH_SECURITY" : "RESTRICTED",
+      status: "ACTIVE",
+      polygon: (z.polygon || []).map(([x, y]) => ({ x, y })),
+      severity: z.severity,
+    }));
+  }
   return [];
 };
 
 export const apiAddZone = async (zone: Partial<Zone>): Promise<Zone> => {
+  const polygonArr = (zone.polygon || []).map((p) => [Math.round(p.x), Math.round(p.y)]);
+  const created = await apiCreateFenceZone({
+    name: zone.name || `Zone_${Date.now()}`,
+    polygon: polygonArr.length >= 3 ? polygonArr : [[0, 0], [100, 0], [100, 100], [0, 100]],
+    severity: zone.type === "HIGH_SECURITY" ? "critical" : "high",
+    camera_id: zone.cameraId || "all",
+  });
   return {
-    id: `zone-${Date.now()}`,
-    cameraId: zone.cameraId || "cam_01",
+    id: String(created?.id || Date.now()),
+    cameraId: zone.cameraId || "all",
     name: zone.name || "New Zone",
     type: zone.type || "RESTRICTED",
     status: "ACTIVE",
@@ -507,12 +576,14 @@ export const apiAddZone = async (zone: Partial<Zone>): Promise<Zone> => {
 };
 
 export const apiUpdateZone = async (zoneId: string, updates: Partial<Zone>): Promise<Zone | null> => {
-  const zones = await apiGetZones();
-  const zone = zones.find((z) => z.id === zoneId);
-  return zone ? { ...zone, ...updates } : null;
+  return null;
 };
 
 export const apiDeleteZone = async (zoneId: string): Promise<boolean> => {
+  const idNum = parseInt(zoneId.replace("zone-", ""), 10);
+  if (!isNaN(idNum)) {
+    return await apiDeleteFenceZone(idNum);
+  }
   return true;
 };
 

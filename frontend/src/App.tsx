@@ -12,10 +12,11 @@ import { Login } from "@/pages/Login";
 import { useAlerts } from "@/hooks/useAlerts";
 
 
+import { Zones } from "@/pages/Zones";
+
 // Placeholder pages
 const Cameras = () => <div className="p-6"><h1 className="text-white">Cameras</h1></div>;
 const Persons = () => <div className="p-6"><h1 className="text-white">Persons Database</h1></div>;
-const Zones = () => <div className="p-6"><h1 className="text-white">Restricted Zones</h1></div>;
 const Settings = () => <div className="p-6"><h1 className="text-white">Settings</h1></div>;
 
 export const App: React.FC = () => {

@@ -181,26 +181,51 @@ export const LiveSurveillance: React.FC = () => {
             const sWidth = (x2 - x1) * scaleX;
             const sHeight = (y2 - y1) * scaleY;
 
+            const isPerson = obj.class_name === "person";
+
+            // Box color & tag
+            let boxColor = isPerson ? "#38bdf8" : "#facc15";
+            let tagColor = isPerson ? "#0284c7" : "#ca8a04";
+
+            let label = `${obj.class_name.toUpperCase()} #${obj.track_id} (${Math.round(
+              obj.confidence * 100
+            )}%)`;
+
+            if (obj.face_name) {
+              if (obj.is_known_face) {
+                boxColor = "#22c55e"; // green for known face
+                tagColor = "#15803d";
+                label = `PERSON: ${obj.face_name.replace(/_/g, " ")} (${Math.round(
+                  obj.confidence * 100
+                )}%)`;
+              } else {
+                boxColor = "#f97316"; // orange for unknown face
+                tagColor = "#c2410c";
+                label = `UNKNOWN PERSON #${obj.track_id} (${Math.round(
+                  obj.confidence * 100
+                )}%)`;
+              }
+            } else if (obj.plate_text) {
+              label = `PLATE: ${obj.plate_text}`;
+            }
+
             // Box
-            ctx.strokeStyle = obj.class_name === "person" ? "#38bdf8" : "#facc15";
+            ctx.strokeStyle = boxColor;
             ctx.lineWidth = 3;
             ctx.strokeRect(sx1, sy1, sWidth, sHeight);
 
             // Translucent fill
-            ctx.fillStyle = obj.class_name === "person" ? "rgba(56, 189, 248, 0.15)" : "rgba(250, 204, 21, 0.15)";
+            ctx.fillStyle = isPerson ? "rgba(56, 189, 248, 0.12)" : "rgba(250, 204, 21, 0.12)";
             ctx.fillRect(sx1, sy1, sWidth, sHeight);
 
             // Label Tag
-            ctx.fillStyle = obj.class_name === "person" ? "#0284c7" : "#ca8a04";
-            const label = `${obj.class_name.toUpperCase()} #${obj.track_id} (${Math.round(
-              obj.confidence * 100
-            )}%)`;
-            ctx.font = "bold 15px sans-serif";
+            ctx.fillStyle = tagColor;
+            ctx.font = "bold 14px sans-serif";
             const textWidth = ctx.measureText(label).width;
-            ctx.fillRect(sx1, Math.max(0, sy1 - 24), textWidth + 10, 24);
+            ctx.fillRect(sx1, Math.max(0, sy1 - 24), textWidth + 12, 24);
 
             ctx.fillStyle = "#ffffff";
-            ctx.fillText(label, sx1 + 5, Math.max(17, sy1 - 6));
+            ctx.fillText(label, sx1 + 6, Math.max(17, sy1 - 6));
           });
         }
       }

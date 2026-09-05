@@ -36,6 +36,11 @@ class TrackedObject:
     track_id: int                          # Persistent ID from ByteTrack (-1 if unassigned)
 
     @property
+    def bbox(self) -> tuple[int, int, int, int]:
+        """Alias for bbox_xyxy to support .bbox callers."""
+        return self.bbox_xyxy
+
+    @property
     def bbox_xywh(self) -> tuple[int, int, int, int]:
         """Convert to (x, y, w, h) format."""
         x1, y1, x2, y2 = self.bbox_xyxy
@@ -99,13 +104,14 @@ class Tracker:
 
     def __init__(self, config: dict[str, Any]) -> None:
         self.config = config
-        self.model_path = config.get("model_path", "models/yolo26n.pt")
-        self.confidence = config.get("confidence", 0.35)
-        self.iou_threshold = config.get("iou_threshold", 0.45)
-        self.target_classes = set(config.get("target_classes", ["person", "car"]))
-        self.device = config.get("device", "")  # "" = auto
-        self.img_size = config.get("img_size", 640)
-        self.tracker_type = config.get("tracker", "bytetrack.yaml")
+        cfg = config.get("detection", config) if isinstance(config, dict) else {}
+        self.model_path = cfg.get("model_path") or config.get("model_path", "models/yolo26n.pt")
+        self.confidence = cfg.get("confidence") if cfg.get("confidence") is not None else config.get("confidence", 0.35)
+        self.iou_threshold = cfg.get("iou_threshold") if cfg.get("iou_threshold") is not None else config.get("iou_threshold", 0.45)
+        self.target_classes = set(cfg.get("target_classes") or config.get("target_classes", ["person", "car"]))
+        self.device = cfg.get("device") if cfg.get("device") is not None else config.get("device", "")
+        self.img_size = cfg.get("img_size") or config.get("img_size", 640)
+        self.tracker_type = cfg.get("tracker") or config.get("tracker", "bytetrack.yaml")
 
         # Build target class ID set
         self._target_ids: set[int] = set()
@@ -206,6 +212,32 @@ class Tracker:
         tracked_objects = self._parse_results(results)
         self._frame_count += 1
 
+        # Spatial Continuity Fallback for low-framerate webcam streams
+        if hasattr(self, "_prev_tracked") and self._prev_tracked:
+            for obj in tracked_objects:
+                if obj.track_id < 0:
+                    # Try to match with prev frame
+                    best_match_id = -1
+                    best_iou = 0.0
+                    for prev in self._prev_tracked:
+                        if prev.class_name == obj.class_name and prev.track_id >= 0:
+                            iou = self._compute_iou(obj.bbox_xyxy, prev.bbox_xyxy)
+                            if iou > best_iou:
+                                best_iou = iou
+                                best_match_id = prev.track_id
+                    if best_match_id >= 0 and best_iou >= 0.35:
+                        obj.track_id = best_match_id
+            
+            # Single-person webcam stabilizer: if exactly 1 person before and 1 person now
+            prev_persons = [p for p in self._prev_tracked if p.class_name == "person" and p.track_id >= 0]
+            curr_persons = [p for p in tracked_objects if p.class_name == "person"]
+            if len(prev_persons) == 1 and len(curr_persons) == 1:
+                iou = self._compute_iou(curr_persons[0].bbox_xyxy, prev_persons[0].bbox_xyxy)
+                if iou >= 0.25:
+                    curr_persons[0].track_id = prev_persons[0].track_id
+
+        self._prev_tracked = tracked_objects
+
         # Count unique active tracks this frame
         active_ids = {obj.track_id for obj in tracked_objects if obj.track_id >= 0}
 
@@ -216,6 +248,19 @@ class Tracker:
             frame_index=frame_index,
             active_track_count=len(active_ids),
         )
+
+    @staticmethod
+    def _compute_iou(boxA: tuple[int, int, int, int], boxB: tuple[int, int, int, int]) -> float:
+        """Calculate Intersection over Union (IoU) between two bounding boxes."""
+        xA = max(boxA[0], boxB[0])
+        yA = max(boxA[1], boxB[1])
+        xB = min(boxA[2], boxB[2])
+        yB = min(boxA[3], boxB[3])
+        interArea = max(0, xB - xA) * max(0, yB - yA)
+        boxAArea = max(0, boxA[2] - boxA[0]) * max(0, boxA[3] - boxA[1])
+        boxBArea = max(0, boxB[2] - boxB[0]) * max(0, boxB[3] - boxB[1])
+        denom = float(boxAArea + boxBArea - interArea)
+        return interArea / denom if denom > 0 else 0.0
 
     def get_track_age(self, track_id: int) -> int:
         """Return the number of frames since this track_id was first seen."""
@@ -235,6 +280,8 @@ class Tracker:
             self.model.predictor = None
         self._track_history.clear()
         self._frame_count = 0
+        if hasattr(self, "_prev_tracked"):
+            self._prev_tracked.clear()
 
     def warmup(self, imgsz: int | None = None) -> None:
         """Run a dummy inference to warm up the model + tracker."""

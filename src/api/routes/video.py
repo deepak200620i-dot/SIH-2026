@@ -50,6 +50,9 @@ class DetectedObject(BaseModel):
     class_name: str
     confidence: float
     bbox: list[float]  # [x1, y1, x2, y2]
+    face_name: Optional[str] = None
+    is_known_face: Optional[bool] = None
+    plate_text: Optional[str] = None
 
 
 class FrameProcessResponse(BaseModel):
@@ -105,15 +108,32 @@ async def process_webcam_frame(
         except Exception as err:
             print(f"Error persisting frame event: {err}")
 
+    # Build lookups for face and plate recognitions
+    face_by_track = {
+        fm.person_track_id: fm for fm in res.face_matches if fm.person_track_id is not None
+    }
+    plate_by_track = {
+        pm.vehicle_track_id: pm for pm in res.plate_matches if pm.vehicle_track_id is not None
+    }
+
     # Format tracked objects
     tracked: list[DetectedObject] = []
     for obj in res.tracked_objects:
+        bbox_raw = getattr(obj, "bbox_xyxy", getattr(obj, "bbox", (0, 0, 0, 0)))
+        bbox_coords = [float(x) for x in bbox_raw]
+
+        fm = face_by_track.get(obj.track_id)
+        pm = plate_by_track.get(obj.track_id)
+
         tracked.append(
             DetectedObject(
                 track_id=obj.track_id,
                 class_name=obj.class_name,
                 confidence=float(obj.confidence),
-                bbox=[float(x) for x in obj.bbox],
+                bbox=bbox_coords,
+                face_name=fm.name if fm else None,
+                is_known_face=fm.is_known if fm else None,
+                plate_text=pm.plate_text if pm else None,
             )
         )
 
