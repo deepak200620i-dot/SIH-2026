@@ -19,7 +19,14 @@ from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from src.api.models import StatsResponse
-from src.api.routes import cameras_router, config_router, events_router, faces_router, video_router
+from src.api.routes import (
+    cameras_router,
+    config_router,
+    events_router,
+    faces_router,
+    video_router,
+    zones_router,
+)
 from src.db.crud import get_stats
 from src.db.database import get_db, init_db
 
@@ -35,6 +42,21 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 
     # Initialize database schema
     await init_db()
+
+    # Load any saved fence zones into pipeline
+    try:
+        from src.api.routes.video import get_pipeline
+        from src.db.crud import get_fence_zones
+        from src.db.database import get_db_connection
+        db_conn = await get_db_connection()
+        try:
+            zones = await get_fence_zones(db_conn)
+            if zones:
+                get_pipeline().update_zones(zones)
+        finally:
+            await db_conn.close()
+    except Exception as e:
+        print(f"Initial zones load notice: {e}")
 
     # Warm up AI pipeline in background thread
     import asyncio
@@ -66,6 +88,7 @@ app.include_router(cameras_router)
 app.include_router(config_router)
 app.include_router(faces_router)
 app.include_router(video_router)
+app.include_router(zones_router)
 
 # Mount static files for evidence snapshots and face gallery images
 os.makedirs("data/evidence", exist_ok=True)

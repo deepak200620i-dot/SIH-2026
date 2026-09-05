@@ -11,10 +11,10 @@ import { ANPR } from "@/pages/ANPR";
 import { Analytics } from "@/pages/Analytics";
 import { Login } from "@/pages/Login";
 import { useAlerts } from "@/hooks/useAlerts";
+import { Zones } from "@/pages/Zones";
 // Placeholder pages
 const Cameras = () => _jsx("div", { className: "p-6", children: _jsx("h1", { className: "text-white", children: "Cameras" }) });
 const Persons = () => _jsx("div", { className: "p-6", children: _jsx("h1", { className: "text-white", children: "Persons Database" }) });
-const Zones = () => _jsx("div", { className: "p-6", children: _jsx("h1", { className: "text-white", children: "Restricted Zones" }) });
 const Settings = () => _jsx("div", { className: "p-6", children: _jsx("h1", { className: "text-white", children: "Settings" }) });
 export const App = () => {
     const [isAuthenticated, setIsAuthenticated] = useState(true);

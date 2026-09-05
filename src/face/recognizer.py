@@ -37,13 +37,23 @@ class FaceMatch:
     face_bbox: tuple[int, int, int, int]       # Face bbox in original frame coords (x1,y1,x2,y2)
     person_bbox: tuple[int, int, int, int]      # Person bbox from YOLO (x1,y1,x2,y2)
     person_track_id: int                         # ByteTrack ID (-1 if untracked)
-    name: str                                    # Matched person name or "unknown"
-    confidence: float                            # Cosine similarity score (0‑1), 0 if unknown
-    is_known: bool                               # True if matched above threshold
+    name: str                                    # Matched person name or "Unknown Person #1"
+    confidence: float                            # Cosine similarity score (0‑1)
+    is_known: bool                               # True if matched gallery above threshold
     det_score: float = 0.0                       # Face detection confidence
     embedding: np.ndarray | None = field(        # 512-d ArcFace embedding (optional)
         default=None, repr=False,
     )
+    unknown_person_id: Optional[int] = None      # Persistent ID for re-identified unknown person
+
+    @property
+    def display_name(self) -> str:
+        """User-facing identity label."""
+        if self.is_known:
+            return self.name
+        if self.unknown_person_id is not None:
+            return f"Unknown Person #{self.unknown_person_id}"
+        return "unknown"
 
     @property
     def face_center(self) -> tuple[int, int]:
@@ -97,15 +107,20 @@ class FaceRecognizer:
 
     def __init__(self, config: dict[str, Any]) -> None:
         self.config = config
-        self.gallery_path = Path(config.get("gallery_path", "data/faces"))
-        self.similarity_threshold = config.get("similarity_threshold", 0.6)
-        self.model_name = config.get("model_name", "buffalo_l")
-        self.det_size = tuple(config.get("det_size", [640, 640]))
-        self.gpu_id = config.get("gpu_id", -1)
-        self.min_face_size = config.get("min_face_size", 20)
+        cfg = config.get("face", config) if isinstance(config, dict) else {}
+        self.gallery_path = Path(cfg.get("gallery_path") or config.get("gallery_path", "data/faces"))
+        self.similarity_threshold = float(cfg.get("similarity_threshold") if cfg.get("similarity_threshold") is not None else config.get("similarity_threshold", 0.6))
+        self.model_name = cfg.get("model_name") or config.get("model_name", "buffalo_l")
+        self.det_size = tuple(cfg.get("det_size") or config.get("det_size", [640, 640]))
+        self.gpu_id = int(cfg.get("gpu_id") if cfg.get("gpu_id") is not None else config.get("gpu_id", -1))
+        self.min_face_size = int(cfg.get("min_face_size") if cfg.get("min_face_size") is not None else config.get("min_face_size", 20))
 
         # Gallery storage: name → GalleryEntry
         self._gallery: dict[str, GalleryEntry] = {}
+
+        # ReID cache for unknown faces across frames
+        self._unknown_cache: list[dict[str, Any]] = []
+        self._next_unknown_id: int = 1
 
         # Load InsightFace model
         self._app = self._load_model()
@@ -217,7 +232,7 @@ class FaceRecognizer:
         Returns
         -------
         (name, similarity_score)
-            ``("unknown", 0.0)`` if the gallery is empty or no match is found
+            ``("unknown", score)`` if the gallery is empty or no match is found
             above the similarity threshold.
         """
         if not self._gallery:
@@ -235,9 +250,51 @@ class FaceRecognizer:
                     best_name = name
 
         if best_score < self.similarity_threshold:
-            return ("unknown", best_score)
+            return ("unknown", round(best_score, 4))
 
-        return (best_name, best_score)
+        return (best_name, round(best_score, 4))
+
+    def _reidentify_unknown(self, embedding: np.ndarray) -> int:
+        """
+        Match an unknown face against recently seen unknown faces to maintain
+        a consistent person ID across frames.
+        """
+        now = time.time()
+        # Clean expired unknown faces (> 180s inactivity)
+        self._unknown_cache = [
+            u for u in self._unknown_cache if (now - u["last_seen"]) < 180.0
+        ]
+
+        best_unknown_id = None
+        best_unknown_score = 0.0
+        for u in self._unknown_cache:
+            score = float(np.dot(embedding, u["embedding"]))
+            if score > best_unknown_score:
+                best_unknown_score = score
+                best_unknown_id = u["id"]
+
+        # ArcFace cosine similarity >= 0.55 strongly indicates the same person
+        if best_unknown_id is not None and best_unknown_score >= 0.55:
+            for u in self._unknown_cache:
+                if u["id"] == best_unknown_id:
+                    u["last_seen"] = now
+                    break
+            return best_unknown_id
+
+        # Brand new unknown face: allocate next persistent ID
+        new_unknown_id = self._next_unknown_id
+        self._next_unknown_id += 1
+        self._unknown_cache.append({
+            "id": new_unknown_id,
+            "embedding": embedding,
+            "last_seen": now,
+        })
+        return new_unknown_id
+
+    def reset(self) -> None:
+        """Reset unknown face session cache."""
+        self._unknown_cache.clear()
+        self._next_unknown_id = 1
 
     # ── Public API ───────────────────────────────────────────────────────
 
@@ -320,6 +377,10 @@ class FaceRecognizer:
         matched_name, similarity = self._match_embedding(embedding)
         is_known = matched_name != "unknown"
 
+        unknown_id = None
+        if not is_known:
+            unknown_id = self._reidentify_unknown(embedding)
+
         # Convert face bbox from crop coordinates to frame coordinates
         fx1, fy1, fx2, fy2 = face.bbox.astype(int).tolist()
         face_bbox_frame = (
@@ -329,15 +390,21 @@ class FaceRecognizer:
             min(h, fy2 + y1),
         )
 
+        # If person_track_id was untracked or volatile, prefer persistent unknown_id
+        effective_track_id = person_track_id
+        if unknown_id is not None and (effective_track_id < 0 or effective_track_id > 1000):
+            effective_track_id = unknown_id
+
         return FaceMatch(
             face_bbox=face_bbox_frame,
             person_bbox=(x1, y1, x2, y2),
-            person_track_id=person_track_id,
+            person_track_id=effective_track_id,
             name=matched_name,
             confidence=round(similarity, 4),
             is_known=is_known,
             det_score=round(float(face.det_score), 4),
             embedding=embedding,
+            unknown_person_id=unknown_id,
         )
 
     def recognize_frame(

@@ -82,6 +82,17 @@ async def init_db(db_path: Optional[str] = None) -> None:
             )
         """)
 
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS fence_zones (
+                id          INTEGER PRIMARY KEY AUTOINCREMENT,
+                name        TEXT    UNIQUE NOT NULL,
+                camera_id   TEXT    DEFAULT 'all',
+                polygon     TEXT    NOT NULL,
+                severity    TEXT    DEFAULT 'high',
+                created_at  TEXT    DEFAULT (datetime('now'))
+            )
+        """)
+
         # Insert default camera if empty
         cursor = await db.execute("SELECT COUNT(*) FROM cameras")
         count = (await cursor.fetchone())[0]
