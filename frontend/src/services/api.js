@@ -98,6 +98,25 @@ export const apiGetCameras = async () => {
     }
     return [];
 };
+export const apiAddCamera = async (camera) => {
+    try {
+        const res = await fetch(`${API_BASE}/api/cameras`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                id: camera.id,
+                name: camera.name,
+                source: camera.source,
+                status: camera.status || "active",
+            }),
+        });
+        return res.ok;
+    }
+    catch (err) {
+        console.error("Failed to add camera:", err);
+        return false;
+    }
+};
 export const apiGetCamera = async (cameraId) => {
     const cams = await apiGetCameras();
     return cams.find((c) => c.id === cameraId) || null;
@@ -123,6 +142,56 @@ export const apiGetCameraStatus = async (cameraId) => {
         vehicleCount: 0,
         lastAlert: null,
     };
+};
+export const apiUploadVideo = async (file, cameraId = "upload_cam_01", frameSkip = 5) => {
+    try {
+        const formData = new FormData();
+        formData.append("file", file);
+        formData.append("camera_id", cameraId);
+        formData.append("frame_skip", String(frameSkip));
+        formData.append("max_frames", "150");
+        const res = await fetch(`${API_BASE}/api/video/upload`, {
+            method: "POST",
+            body: formData,
+        });
+        if (res.ok) {
+            const data = await res.json();
+            return { success: true, data };
+        }
+        else {
+            const errData = await res.json().catch(() => ({}));
+            return {
+                success: false,
+                error: errData.detail || `Server error (HTTP ${res.status})`,
+            };
+        }
+    }
+    catch (err) {
+        return {
+            success: false,
+            error: err?.message || "Network request failed. Ensure backend is running.",
+        };
+    }
+};
+export const apiProcessWebcamFrame = async (base64Image, cameraId = "webcam_01", frameIndex = 0) => {
+    try {
+        const res = await fetch(`${API_BASE}/api/video/process-frame`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                image: base64Image,
+                camera_id: cameraId,
+                frame_index: frameIndex,
+            }),
+        });
+        if (res.ok) {
+            return await res.json();
+        }
+    }
+    catch (err) {
+        // Silently handle frame processing network dips
+    }
+    return null;
 };
 // ============ EVENTS ============
 export const apiGetEvents = async (page = 1, pageSize = 20, filters) => {
