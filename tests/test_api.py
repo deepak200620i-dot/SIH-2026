@@ -192,3 +192,57 @@ def test_faces_crud_api(client):
     assert res_del.status_code == 200
     assert res_del.json()["status"] == "success"
 
+
+def test_process_webcam_frame_api(client):
+    import base64
+    import numpy as np
+    import cv2
+
+    # Create dummy black frame
+    dummy_img = np.zeros((240, 320, 3), dtype=np.uint8)
+    _, buf = cv2.imencode(".jpg", dummy_img)
+    b64_str = "data:image/jpeg;base64," + base64.b64encode(buf).decode("utf-8")
+
+    res = client.post(
+        "/api/video/process-frame",
+        json={"image": b64_str, "camera_id": "webcam_test", "frame_index": 1},
+    )
+    assert res.status_code == 200
+    data = res.json()
+    assert data["camera_id"] == "webcam_test"
+    assert "tracked_objects" in data
+    assert "events_triggered" in data
+
+
+def test_video_upload_api(client):
+    import io
+    import numpy as np
+    import cv2
+    import tempfile
+
+    # Create small valid test video in temp file
+    tmp_vid = os.path.join(tempfile.gettempdir(), "test_short.mp4")
+    fourcc = cv2.VideoWriter_fourcc(*"mp4v")
+    out = cv2.VideoWriter(tmp_vid, fourcc, 10.0, (320, 240))
+    for _ in range(5):
+        frame = np.zeros((240, 320, 3), dtype=np.uint8)
+        out.write(frame)
+    out.release()
+
+    with open(tmp_vid, "rb") as f:
+        vid_bytes = f.read()
+
+    files = {"file": ("test_video.mp4", io.BytesIO(vid_bytes), "video/mp4")}
+    data = {"camera_id": "upload_test_cam", "frame_skip": "1"}
+
+    res = client.post("/api/video/upload", data=data, files=files)
+    assert res.status_code == 200
+    res_json = res.json()
+    assert res_json["status"] == "completed"
+    assert res_json["total_frames"] >= 5
+    assert res_json["camera_id"] == "upload_test_cam"
+
+    if os.path.exists(tmp_vid):
+        os.remove(tmp_vid)
+
+

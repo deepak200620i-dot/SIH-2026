@@ -114,6 +114,30 @@ export const apiGetCameras = async (): Promise<Camera[]> => {
   return [];
 };
 
+export const apiAddCamera = async (camera: {
+  id: string;
+  name: string;
+  source: string;
+  status?: string;
+}): Promise<boolean> => {
+  try {
+    const res = await fetch(`${API_BASE}/api/cameras`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        id: camera.id,
+        name: camera.name,
+        source: camera.source,
+        status: camera.status || "active",
+      }),
+    });
+    return res.ok;
+  } catch (err) {
+    console.error("Failed to add camera:", err);
+    return false;
+  }
+};
+
 export const apiGetCamera = async (cameraId: string): Promise<Camera | null> => {
   const cams = await apiGetCameras();
   return cams.find((c) => c.id === cameraId) || null;
@@ -139,6 +163,92 @@ export const apiGetCameraStatus = async (cameraId: string): Promise<any> => {
     vehicleCount: 0,
     lastAlert: null,
   };
+};
+
+// ============ VIDEO & WEBCAM INGESTION ============
+export interface VideoUploadResult {
+  status: string;
+  filename: string;
+  camera_id: string;
+  total_frames: number;
+  processed_frames: number;
+  elapsed_seconds: number;
+  events_count: number;
+  events: any[];
+}
+
+export const apiUploadVideo = async (
+  file: File,
+  cameraId: string = "upload_cam_01",
+  frameSkip: number = 5
+): Promise<{ success: boolean; data?: VideoUploadResult; error?: string }> => {
+  try {
+    const formData = new FormData();
+    formData.append("file", file);
+    formData.append("camera_id", cameraId);
+    formData.append("frame_skip", String(frameSkip));
+    formData.append("max_frames", "150");
+
+    const res = await fetch(`${API_BASE}/api/video/upload`, {
+      method: "POST",
+      body: formData,
+    });
+
+    if (res.ok) {
+      const data = await res.json();
+      return { success: true, data };
+    } else {
+      const errData = await res.json().catch(() => ({}));
+      return {
+        success: false,
+        error: errData.detail || `Server error (HTTP ${res.status})`,
+      };
+    }
+  } catch (err: any) {
+    return {
+      success: false,
+      error: err?.message || "Network request failed. Ensure backend is running.",
+    };
+  }
+};
+
+export interface ProcessFrameResult {
+  camera_id: string;
+  frame_index: number;
+  fps: number;
+  total_ms: number;
+  tracked_objects: Array<{
+    track_id: number;
+    class_name: string;
+    confidence: number;
+    bbox: number[];
+  }>;
+  events_triggered: any[];
+}
+
+export const apiProcessWebcamFrame = async (
+  base64Image: string,
+  cameraId: string = "webcam_01",
+  frameIndex: number = 0
+): Promise<ProcessFrameResult | null> => {
+  try {
+    const res = await fetch(`${API_BASE}/api/video/process-frame`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        image: base64Image,
+        camera_id: cameraId,
+        frame_index: frameIndex,
+      }),
+    });
+
+    if (res.ok) {
+      return await res.json();
+    }
+  } catch (err) {
+    // Silently handle frame processing network dips
+  }
+  return null;
 };
 
 // ============ EVENTS ============
