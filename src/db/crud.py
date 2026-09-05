@@ -41,8 +41,8 @@ async def create_event(db: aiosqlite.Connection, event: Event) -> Event:
         INSERT INTO events (
             timestamp, event_type, severity, camera_id, track_id,
             class_name, zone_name, face_name, plate_text, confidence,
-            bbox, snapshot, metadata
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            bbox, snapshot, metadata, status
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     """
     params = (
         event.timestamp,
@@ -58,6 +58,7 @@ async def create_event(db: aiosqlite.Connection, event: Event) -> Event:
         bbox_json,
         event.snapshot,
         meta_json,
+        event.status,
     )
 
     cursor = await db.execute(query, params)
@@ -80,6 +81,15 @@ async def get_event_by_id(db: aiosqlite.Connection, event_id: int) -> dict[str, 
     if not row:
         return None
     return _row_to_dict(row)
+
+
+async def update_event_status(
+    db: aiosqlite.Connection, event_id: int, status: str
+) -> dict[str, Any] | None:
+    """Persist an operator acknowledgement/investigation state for an event."""
+    await db.execute("UPDATE events SET status = ? WHERE id = ?", (status, event_id))
+    await db.commit()
+    return await get_event_by_id(db, event_id)
 
 
 async def get_events(
@@ -183,8 +193,8 @@ async def get_known_faces(db: aiosqlite.Connection) -> list[dict[str, Any]]:
         img_path = d.get("image_path")
         # Format image URL for API response
         if img_path:
-            clean_name = os.path.basename(img_path)
-            d["image_url"] = f"/api/faces/images/{clean_name}"
+            relative_path = os.path.relpath(img_path, "data/faces").replace("\\", "/")
+            d["image_url"] = f"/api/faces/images/{relative_path}"
         else:
             d["image_url"] = None
         results.append(d)
@@ -209,7 +219,8 @@ async def add_known_face(
     row = await cur.fetchone()
     d = dict(row)
     if d.get("image_path"):
-        d["image_url"] = f"/api/faces/images/{os.path.basename(d['image_path'])}"
+        relative_path = os.path.relpath(d["image_path"], "data/faces").replace("\\", "/")
+        d["image_url"] = f"/api/faces/images/{relative_path}"
     else:
         d["image_url"] = None
     return d
@@ -291,5 +302,3 @@ async def delete_fence_zone(db: aiosqlite.Connection, zone_id: int) -> bool:
     await db.execute("DELETE FROM fence_zones WHERE id = ?", (zone_id,))
     await db.commit()
     return True
-
-

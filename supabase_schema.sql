@@ -19,6 +19,7 @@ CREATE TABLE IF NOT EXISTS events (
     bbox        JSONB,
     snapshot    TEXT,
     metadata    JSONB,
+    status      VARCHAR(20) NOT NULL DEFAULT 'ACTIVE', -- active, acknowledged, investigating, resolved
     created_at  TIMESTAMPTZ DEFAULT NOW()
 );
 

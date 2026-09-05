@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { Bell, LogOut, Settings } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 
 import { getCurrentDateTime } from "@/utils/date";
 
@@ -9,6 +10,7 @@ interface TopBarProps {
 }
 
 export const TopBar: React.FC<TopBarProps> = ({ title, alertCount = 0 }) => {
+  const navigate = useNavigate();
   const [currentTime, setCurrentTime] = useState(getCurrentDateTime());
 
   useEffect(() => {
@@ -49,12 +51,16 @@ export const TopBar: React.FC<TopBarProps> = ({ title, alertCount = 0 }) => {
         </button>
 
         {/* Settings */}
-        <button className="p-2 hover:bg-gray-800 rounded transition">
+        <button onClick={() => navigate("/settings")} aria-label="Open settings" className="p-2 hover:bg-gray-800 rounded transition">
           <Settings size={20} className="text-gray-300" />
         </button>
 
         {/* Logout */}
-        <button className="p-2 hover:bg-gray-800 rounded transition">
+        <button
+          onClick={() => { sessionStorage.removeItem("ibvap-authenticated"); window.location.assign("/"); }}
+          aria-label="Log out"
+          className="p-2 hover:bg-gray-800 rounded transition"
+        >
           <LogOut size={20} className="text-gray-300" />
         </button>
       </div>

@@ -23,6 +23,7 @@ class EventBase(BaseModel):
     bbox: Optional[list[float]] = None
     snapshot: Optional[str] = None
     metadata: Optional[dict[str, Any]] = None
+    status: str = "ACTIVE"
 
 
 class EventCreate(EventBase):
@@ -34,6 +35,10 @@ class EventResponse(EventBase):
     created_at: Optional[str] = None
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class EventStatusUpdate(BaseModel):
+    status: str = Field(..., pattern="^(ACTIVE|ACKNOWLEDGED|INVESTIGATING|RESOLVED)$")
 
 
 class EventListResponse(BaseModel):
@@ -91,4 +96,3 @@ class KnownFaceResponse(BaseModel):
     created_at: Optional[str] = None
 
     model_config = ConfigDict(from_attributes=True)
-

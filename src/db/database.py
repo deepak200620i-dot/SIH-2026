@@ -58,9 +58,16 @@ async def init_db(db_path: Optional[str] = None) -> None:
                 bbox        TEXT,
                 snapshot    TEXT,
                 metadata    TEXT,
+                status      TEXT    DEFAULT 'ACTIVE',
                 created_at  TEXT    DEFAULT (datetime('now'))
             )
         """)
+
+        # Support databases created before event acknowledgement was added.
+        cursor = await db.execute("PRAGMA table_info(events)")
+        columns = {row[1] for row in await cursor.fetchall()}
+        if "status" not in columns:
+            await db.execute("ALTER TABLE events ADD COLUMN status TEXT DEFAULT 'ACTIVE'")
 
         await db.execute("""
             CREATE TABLE IF NOT EXISTS cameras (
