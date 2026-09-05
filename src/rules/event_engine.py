@@ -47,6 +47,7 @@ class Event:
     bbox: Optional[list[float]] = None     # [x1, y1, x2, y2]
     snapshot: Optional[str] = None         # path to snapshot file
     metadata: Optional[dict[str, Any]] = None
+    status: str = "ACTIVE"
     id: Optional[int] = None
     created_at: Optional[str] = None
 

@@ -32,6 +32,14 @@ const mapSeverity = (rawSev) => {
     }
     return "MEDIUM";
 };
+const mapFrontendEventTypeToBackend = (eventType) => {
+    const types = {
+        INTRUSION: "intrusion", LOITERING: "loitering", FACE_RECOGNIZED: "face_match",
+        UNKNOWN_FACE: "face_unknown", ANPR_DETECTED: "anpr", PERSON_DETECTED: "person_detected",
+        VEHICLE_DETECTED: "vehicle_detected", RESTRICTED_ZONE_ENTRY: "intrusion",
+    };
+    return types[eventType] || eventType.toLowerCase();
+};
 // Map backend event row to SecurityEvent
 export const mapBackendToSecurityEvent = (raw) => {
     const eventType = mapEventType(raw.event_type || raw.eventType);
@@ -52,7 +60,7 @@ export const mapBackendToSecurityEvent = (raw) => {
             ? `${API_BASE}/api/evidence/${raw.snapshot.replace(/^data\/evidence\//, "")}`
             : undefined,
         description: desc,
-        status: "ACTIVE",
+        status: raw.status || "ACTIVE",
         detailedInfo: raw.metadata || {},
     };
 };
@@ -66,7 +74,7 @@ export const mapBackendToAlert = (raw) => {
         cameraId: sec.cameraId,
         timestamp: sec.timestamp,
         confidence: sec.confidence || 90,
-        status: "ACTIVE",
+        status: sec.status,
         description: sec.description,
         evidenceImageUrl: sec.evidenceUrl,
         relatedEvents: [sec.id],
@@ -203,6 +211,8 @@ export const apiGetEvents = async (page = 1, pageSize = 20, filters) => {
         let url = `${API_BASE}/api/events?limit=${pageSize}&offset=${offset}`;
         if (filters?.severity)
             url += `&severity=${filters.severity.toLowerCase()}`;
+        if (filters?.eventType)
+            url += `&event_type=${encodeURIComponent(mapFrontendEventTypeToBackend(filters.eventType))}`;
         if (filters?.cameraId)
             url += `&camera_id=${filters.cameraId}`;
         const res = await fetch(url);
@@ -283,7 +293,19 @@ export const apiGetAlert = async (alertId) => {
     return null;
 };
 export const apiUpdateAlertStatus = async (alertId, status) => {
-    return true;
+    try {
+        const eventId = alertId.replace(/^alert-/, "");
+        const res = await fetch(`${API_BASE}/api/events/${eventId}/status`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ status }),
+        });
+        return res.ok;
+    }
+    catch (err) {
+        console.error("Failed to update alert status:", err);
+        return false;
+    }
 };
 // ============ PERSONS (Known Faces) ============
 export const apiGetPersons = async () => {
@@ -308,14 +330,27 @@ export const apiGetPersons = async () => {
     return [];
 };
 export const apiAddPerson = async (person) => {
-    return {
-        id: Math.random().toString(36).substr(2, 9),
-        name: person.name || "Unknown",
-        category: person.category || "Personnel",
-        status: person.status || "Active",
-        photoUrl: person.photoUrl,
-        lastSeen: new Date().toISOString(),
-    };
+    throw new Error("Use apiUploadPerson with an image file.");
+};
+export const apiUploadPerson = async (name, image) => {
+    try {
+        const formData = new FormData();
+        formData.append("name", name);
+        formData.append("image", image);
+        const res = await fetch(`${API_BASE}/api/faces`, { method: "POST", body: formData });
+        if (!res.ok)
+            return null;
+        const face = await res.json();
+        return {
+            id: String(face.id), name: face.name, category: "Personnel", status: "Active",
+            photoUrl: face.image_url ? `${API_BASE}${face.image_url}` : undefined,
+            lastSeen: face.created_at, lastCamera: "cam_01",
+        };
+    }
+    catch (err) {
+        console.error("Failed to upload person:", err);
+        return null;
+    }
 };
 export const apiDeletePerson = async (personId) => {
     try {

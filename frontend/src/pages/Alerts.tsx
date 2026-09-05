@@ -9,10 +9,15 @@ export const Alerts: React.FC = () => {
   const [selectedAlert, setSelectedAlert] = useState<Alert | null>(null);
   const [severity, setSeverity] = useState<string | null>(null);
   const { alerts, loading } = useAlerts(severity ? { severity } : undefined);
+  const [actionError, setActionError] = useState<string | null>(null);
 
   const handleUpdateStatus = async (alertId: string, status: string) => {
-    await apiUpdateAlertStatus(alertId, status);
-    setSelectedAlert(null);
+    const updated = await apiUpdateAlertStatus(alertId, status);
+    if (updated) {
+      setSelectedAlert(null);
+    } else {
+      setActionError("Could not save the alert status. Please try again.");
+    }
   };
 
   if (loading) {
@@ -47,6 +52,8 @@ export const Alerts: React.FC = () => {
 
       {/* Alert Table */}
       <AlertTable alerts={alerts} onAlertClick={setSelectedAlert} />
+
+      {actionError && <p className="text-sm text-red-700">{actionError}</p>}
 
       {/* Alert Detail Modal */}
       {selectedAlert && (

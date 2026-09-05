@@ -13,8 +13,8 @@ from typing import Any, Optional
 import aiosqlite
 from fastapi import APIRouter, Depends, HTTPException, Query, WebSocket, WebSocketDisconnect
 
-from src.api.models import EventCreate, EventListResponse, EventResponse, StatsResponse
-from src.db.crud import create_event, get_event_by_id, get_events, get_stats
+from src.api.models import EventCreate, EventListResponse, EventResponse, EventStatusUpdate, StatsResponse
+from src.db.crud import create_event, get_event_by_id, get_events, get_stats, update_event_status
 from src.db.database import get_db
 from src.rules.event_engine import Event
 
@@ -91,6 +91,20 @@ async def get_event(
     event_dict = await get_event_by_id(db, event_id)
     if not event_dict:
         raise HTTPException(status_code=404, detail="Event not found")
+    return EventResponse(**event_dict)
+
+
+@router.patch("/{event_id}/status", response_model=EventResponse)
+async def set_event_status(
+    event_id: int,
+    payload: EventStatusUpdate,
+    db: aiosqlite.Connection = Depends(get_db),
+) -> EventResponse:
+    """Store an operator action for an event and publish the updated record."""
+    event_dict = await update_event_status(db, event_id, payload.status)
+    if not event_dict:
+        raise HTTPException(status_code=404, detail="Event not found")
+    await ws_manager.broadcast({"type": "EVENT_UPDATED", "data": event_dict})
     return EventResponse(**event_dict)
 
 

@@ -9,22 +9,23 @@ import { FaceRecognition } from "@/pages/FaceRecognition";
 import { ANPR } from "@/pages/ANPR";
 import { Analytics } from "@/pages/Analytics";
 import { Login } from "@/pages/Login";
+import { Cameras } from "@/pages/Cameras";
+import { CameraDetails } from "@/pages/CameraDetails";
+import { Persons } from "@/pages/Persons";
+import { Settings } from "@/pages/Settings";
 import { useAlerts } from "@/hooks/useAlerts";
 
 
 import { Zones } from "@/pages/Zones";
 
-// Placeholder pages
-const Cameras = () => <div className="p-6"><h1 className="text-white">Cameras</h1></div>;
-const Persons = () => <div className="p-6"><h1 className="text-white">Persons Database</h1></div>;
-const Settings = () => <div className="p-6"><h1 className="text-white">Settings</h1></div>;
-
 export const App: React.FC = () => {
-  const [isAuthenticated, setIsAuthenticated] = useState(true);
+  const [isAuthenticated, setIsAuthenticated] = useState(
+    () => sessionStorage.getItem("ibvap-authenticated") === "true"
+  );
   const { alerts } = useAlerts();
 
   if (!isAuthenticated) {
-    return <Login onLogin={() => setIsAuthenticated(true)} />;
+    return <Login onLogin={() => { sessionStorage.setItem("ibvap-authenticated", "true"); setIsAuthenticated(true); }} />;
   }
 
   return (
@@ -35,6 +36,7 @@ export const App: React.FC = () => {
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/live" element={<LiveSurveillance />} />
           <Route path="/cameras" element={<Cameras />} />
+          <Route path="/cameras/:cameraId" element={<CameraDetails />} />
           <Route path="/alerts" element={<Alerts />} />
           <Route path="/events" element={<Events />} />
           <Route path="/face-recognition" element={<FaceRecognition />} />
