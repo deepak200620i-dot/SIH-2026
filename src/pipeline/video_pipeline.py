@@ -95,6 +95,7 @@ class VideoPipeline:
 
         # 6. Event Engine
         self.event_engine = EventEngine(self.config)
+        self._camera_entry_times: dict[tuple[str, int], float] = {}
 
     def process_frame(
         self,
@@ -132,6 +133,12 @@ class VideoPipeline:
         # 6. Event Processing & Persisting
         generated_events: list[Event] = []
 
+        active_camera_tracks = {(camera_id, obj.track_id) for obj in tracked_objects if obj.track_id >= 0}
+        self._camera_entry_times = {key: entered for key, entered in self._camera_entry_times.items() if key in active_camera_tracks}
+        for obj in tracked_objects:
+            if obj.track_id >= 0:
+                self._camera_entry_times.setdefault((camera_id, obj.track_id), ts)
+
         # Intrusion Events
         for fe in fence_events:
             evt = self.event_engine.process_event(
@@ -145,6 +152,7 @@ class VideoPipeline:
                 frame=frame,
                 camera_id=camera_id,
                 timestamp_sec=ts,
+                metadata={"entry_time": time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(ts)), "time_in_zone_seconds": 0},
             )
             if evt:
                 generated_events.append(evt)
@@ -173,7 +181,10 @@ class VideoPipeline:
             event_type = "face_match" if fm.is_known else "face_unknown"
             
             # Use stable unknown_person_id if available to avoid duplicate IDs
-            tid = fm.unknown_person_id if fm.unknown_person_id is not None else fm.person_track_id
+            # Prefer ByteTrack's camera-local ID; this is stable while a person
+            # remains in the feed and prevents repeated unknown-face records.
+            tid = fm.person_track_id if fm.person_track_id >= 0 else fm.unknown_person_id
+            entry_time = self._camera_entry_times.get((camera_id, tid), ts) if tid is not None else ts
 
             # If there are restricted zones on this camera, check if person is in a zone
             in_restricted_zone = any(
@@ -194,6 +205,11 @@ class VideoPipeline:
                 frame=frame,
                 camera_id=camera_id,
                 timestamp_sec=ts,
+                metadata={
+                    "entry_time": time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(entry_time)),
+                    "time_under_camera_seconds": round(ts - entry_time, 1),
+                    "person_identity": fm.display_name,
+                },
             )
             if evt:
                 generated_events.append(evt)
@@ -275,5 +291,6 @@ class VideoPipeline:
         self.fence.reset()
         self.loitering.reset()
         self.event_engine.reset()
+        self._camera_entry_times.clear()
         if self.face_recognizer:
             self.face_recognizer.reset()
