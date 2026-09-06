@@ -69,7 +69,7 @@ export const mapBackendToSecurityEvent = (raw: any): SecurityEvent => {
     timestamp: raw.timestamp || new Date().toISOString(),
     confidence: raw.confidence ? Math.round(raw.confidence * 100) : 90,
     trackId: raw.track_id || raw.trackId,
-    personId: raw.face_name || raw.personId,
+    personId: raw.face_name || raw.metadata?.person_identity || raw.personId,
     vehicleId: raw.plate_text || raw.vehicleId,
     evidenceUrl: raw.snapshot
       ? `${API_BASE}/api/evidence/${raw.snapshot.replace(/^data\/evidence\//, "")}`
@@ -443,8 +443,11 @@ export const apiGetFaceEvents = async (
       const seen = new Set<string>();
       const faceEvts = (data.items || []).filter((e: any) => {
         if (!["face_match", "face_unknown"].includes(e.event_type)) return false;
-        const identity = e.track_id ?? e.metadata?.person_identity ?? e.id;
-        const key = `${e.camera_id}:${identity}`;
+        // New events have a stable ReID track. Legacy webcam rows are grouped
+        // within a short camera session so old duplicate history remains usable.
+        const identity = e.metadata?.person_identity || e.track_id;
+        const bucket = Math.floor(new Date(e.timestamp).getTime() / 120000);
+        const key = identity && identity !== "unknown" ? `${e.camera_id}:${identity}` : `${e.camera_id}:unknown:${bucket}`;
         if (seen.has(key)) return false;
         seen.add(key);
         return true;
