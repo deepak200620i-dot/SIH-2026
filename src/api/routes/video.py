@@ -23,7 +23,7 @@ from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from pydantic import BaseModel
 
 from src.api.routes.events import ws_manager
-from src.db.crud import create_event
+from src.db.crud import create_event, update_event_metadata
 from src.db.database import get_db
 from src.pipeline.video_pipeline import VideoPipeline
 
@@ -120,9 +120,14 @@ async def process_webcam_frame(
             saved = await create_event(db, evt)
             evt_dict = saved.to_dict()
             events_data.append(evt_dict)
+            if evt.event_type == "intrusion" and evt.metadata and evt.metadata.get("session_key"):
+                pipeline.register_intrusion_event(evt.metadata["session_key"], saved.id)
             await ws_manager.broadcast(evt_dict)
         except Exception as err:
             print(f"Error persisting frame event: {err}")
+
+    for update in res.completed_intrusions:
+        await update_event_metadata(db, update.pop("event_id"), update)
 
     # Build lookups for face and plate recognitions
     face_by_track = {
@@ -243,9 +248,14 @@ async def upload_and_process_video(
                     saved = await create_event(db, evt)
                     evt_dict = saved.to_dict()
                     generated_events_list.append(evt_dict)
+                    if evt.event_type == "intrusion" and evt.metadata and evt.metadata.get("session_key"):
+                        pipeline.register_intrusion_event(evt.metadata["session_key"], saved.id)
                     await ws_manager.broadcast(evt_dict)
                 except Exception as e:
                     print(f"Error persisting uploaded video event: {e}")
+
+            for update in res.completed_intrusions:
+                await update_event_metadata(db, update.pop("event_id"), update)
 
             # Pipeline results include an annotated image. Release it before the
             # next high-resolution source frame is decoded.

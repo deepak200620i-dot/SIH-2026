@@ -92,6 +92,19 @@ async def update_event_status(
     return await get_event_by_id(db, event_id)
 
 
+async def update_event_metadata(
+    db: aiosqlite.Connection, event_id: int, metadata: dict[str, Any]
+) -> dict[str, Any] | None:
+    """Merge lifecycle fields (such as a zone exit duration) into an event."""
+    event = await get_event_by_id(db, event_id)
+    if event is None:
+        return None
+    merged = {**(event.get("metadata") or {}), **metadata}
+    await db.execute("UPDATE events SET metadata = ? WHERE id = ?", (json.dumps(merged), event_id))
+    await db.commit()
+    return await get_event_by_id(db, event_id)
+
+
 async def get_events(
     db: aiosqlite.Connection,
     limit: int = 50,
