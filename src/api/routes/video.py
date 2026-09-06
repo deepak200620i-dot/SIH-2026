@@ -9,6 +9,7 @@ Handles:
 from __future__ import annotations
 
 import base64
+import gc
 import os
 import shutil
 import tempfile
@@ -30,6 +31,21 @@ router = APIRouter(prefix="/api/video", tags=["video"])
 
 # Global VideoPipeline instance initialized on demand
 _pipeline: Optional[VideoPipeline] = None
+
+
+def _resize_for_processing(frame: np.ndarray, max_dimension: int) -> np.ndarray:
+    """Downscale oversized frames while preserving their aspect ratio."""
+    height, width = frame.shape[:2]
+    largest_dimension = max(width, height)
+    if max_dimension <= 0 or largest_dimension <= max_dimension:
+        return frame
+
+    scale = max_dimension / largest_dimension
+    return cv2.resize(
+        frame,
+        (max(1, round(width * scale)), max(1, round(height * scale))),
+        interpolation=cv2.INTER_AREA,
+    )
 
 
 def get_pipeline() -> VideoPipeline:
@@ -188,6 +204,8 @@ async def upload_and_process_video(
 
         total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
         video_fps = cap.get(cv2.CAP_PROP_FPS) or 30.0
+        processing_cfg = pipeline.config.get("video", {})
+        max_processing_dimension = int(processing_cfg.get("max_processing_dimension", 960))
 
         frame_idx = 0
         processed_count = 0
@@ -203,10 +221,12 @@ async def upload_and_process_video(
 
             frame_idx += 1
             if frame_skip > 1 and (frame_idx % frame_skip != 0):
+                del frame
                 continue
 
             processed_count += 1
             current_time = start_proc + (frame_idx / video_fps)
+            frame = _resize_for_processing(frame, max_processing_dimension)
 
             # Process frame
             res = pipeline.process_frame(
@@ -226,6 +246,13 @@ async def upload_and_process_video(
                     await ws_manager.broadcast(evt_dict)
                 except Exception as e:
                     print(f"Error persisting uploaded video event: {e}")
+
+            # Pipeline results include an annotated image. Release it before the
+            # next high-resolution source frame is decoded.
+            del res
+            del frame
+            if processed_count % 25 == 0:
+                gc.collect()
 
         cap.release()
         elapsed_time = time.time() - start_proc

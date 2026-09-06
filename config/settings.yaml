@@ -14,6 +14,7 @@ detection:
 video:
   source: data/videos/test.mp4
   max_fps: 30
+  max_processing_dimension: 960
 tracking:
   tracker: bytetrack.yaml
 fence:
@@ -33,7 +34,7 @@ fence:
 face:
   gallery_path: data/faces
   similarity_threshold: 0.6
-  model_name: buffalo_sc
+  model_name: buffalo_l
   det_size:
   - 640
   - 640
