@@ -1,7 +1,7 @@
 import { jsx as _jsx, jsxs as _jsxs } from "react/jsx-runtime";
 import { useState, useEffect } from "react";
 import { useLocation, Link } from "react-router-dom";
-import { LayoutDashboard, Camera, AlertCircle, Activity, Users, Zap, BarChart3, MapPin, Settings, Radio, } from "lucide-react";
+import { LayoutDashboard, Camera, AlertCircle, Activity, Users, Zap, BarChart3, MapPin, Settings, Radio, ShieldAlert, } from "lucide-react";
 import { apiGetSystemStatus, apiGetCameras } from "@/services/api";
 const menuItems = [
     { icon: LayoutDashboard, label: "Dashboard", path: "/dashboard" },
@@ -13,6 +13,7 @@ const menuItems = [
     { icon: Users, label: "Persons", path: "/persons" },
     { icon: Zap, label: "ANPR", path: "/anpr" },
     { icon: MapPin, label: "Zones", path: "/zones" },
+    { icon: ShieldAlert, label: "Intrusions", path: "/intrusions" },
     { icon: BarChart3, label: "Analytics", path: "/analytics" },
     { icon: Settings, label: "Settings", path: "/settings" },
 ];

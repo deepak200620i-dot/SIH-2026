@@ -369,7 +369,17 @@ export const apiGetFaceEvents = async (page = 1, pageSize = 20) => {
         const res = await fetch(`${API_BASE}/api/events?limit=${pageSize}&offset=${offset}`);
         if (res.ok) {
             const data = await res.json();
-            const faceEvts = (data.items || []).filter((e) => ["face_match", "face_unknown"].includes(e.event_type));
+            const seen = new Set();
+            const faceEvts = (data.items || []).filter((e) => {
+                if (!["face_match", "face_unknown"].includes(e.event_type))
+                    return false;
+                const identity = e.track_id ?? e.metadata?.person_identity ?? e.id;
+                const key = `${e.camera_id}:${identity}`;
+                if (seen.has(key))
+                    return false;
+                seen.add(key);
+                return true;
+            });
             const items = faceEvts.map((e) => ({
                 id: String(e.id),
                 cameraId: e.camera_id || "cam_01",
@@ -379,6 +389,7 @@ export const apiGetFaceEvents = async (page = 1, pageSize = 20) => {
                 similarity: e.confidence ? Math.round(e.confidence * 100) : 85,
                 matchedPersonName: e.face_name,
                 confidence: e.confidence ? Math.round(e.confidence * 100) : 90,
+                timeUnderCameraSeconds: Math.max(0, Math.floor((Date.now() - new Date(e.metadata?.entry_time || e.timestamp).getTime()) / 1000)),
             }));
             return {
                 items,
@@ -568,10 +579,28 @@ export const apiGetAnalytics = async () => {
         if (res.ok) {
             const data = await res.json();
             const events = data.items || [];
+            const now = new Date();
+            const hourlyBuckets = Array.from({ length: 24 }, (_, index) => {
+                const date = new Date(now);
+                date.setMinutes(0, 0, 0);
+                date.setHours(date.getHours() - (23 - index));
+                return { key: date.getTime(), label: `${String(date.getHours()).padStart(2, "0")}:00`, count: 0 };
+            });
+            const detectionsByHour = hourlyBuckets.map((bucket) => ({ ...bucket }));
+            const bucketFor = (timestamp) => {
+                const value = new Date(timestamp).getTime();
+                return hourlyBuckets.findIndex((bucket, index) => value >= bucket.key && (index === hourlyBuckets.length - 1 || value < hourlyBuckets[index + 1].key));
+            };
             // Group by camera
             const camMap = {};
             const typeMap = {};
             events.forEach((e) => {
+                const bucketIndex = bucketFor(e.timestamp);
+                if (bucketIndex >= 0) {
+                    hourlyBuckets[bucketIndex].count += 1;
+                    if (e.class_name === "person" || String(e.event_type).includes("person") || String(e.event_type).includes("face"))
+                        detectionsByHour[bucketIndex].count += 1;
+                }
                 const cam = e.camera_id || "cam_01";
                 camMap[cam] = (camMap[cam] || 0) + 1;
                 const t = mapEventType(e.event_type);
@@ -580,11 +609,11 @@ export const apiGetAnalytics = async () => {
             const intrusionsByCamera = Object.entries(camMap).map(([camera, count]) => ({ camera, count }));
             const eventDistribution = Object.entries(typeMap).map(([type, count]) => ({ type: type, count }));
             return {
-                alertsTrend: [],
+                alertsTrend: hourlyBuckets.map(({ label, count }) => ({ timestamp: label, count })),
                 intrusionsByCamera,
-                unknownFacesTrend: [],
+                unknownFacesTrend: hourlyBuckets.map(({ label, count }) => ({ timestamp: label, count })),
                 vehicleDetections: [],
-                personDetections: [],
+                personDetections: detectionsByHour.map(({ label, count }) => ({ timestamp: label, count })),
                 eventDistribution,
                 cameraActivity: intrusionsByCamera.map((i) => ({ camera: i.camera, events: i.count })),
             };

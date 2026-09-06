@@ -86,6 +86,7 @@ export const FaceRecognition: React.FC = () => {
                   )}
 
                   <p className="text-gray-400 text-xs">{event.cameraId}</p>
+                  {event.timeUnderCameraSeconds !== undefined && <p className="text-amber-300 text-xs">Under camera: {Math.floor(event.timeUnderCameraSeconds / 60)}m {event.timeUnderCameraSeconds % 60}s</p>}
                 </div>
               </div>
             ))}

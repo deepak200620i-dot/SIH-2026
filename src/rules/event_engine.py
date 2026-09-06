@@ -72,8 +72,8 @@ class EventEngine:
         self.cooldown_seconds: float = float(events_cfg.get("cooldown_seconds", 30.0))
         self.evidence_path: str = events_cfg.get("evidence_path", "data/evidence")
 
-        # Debounce state: (track_id, event_type, zone_name) -> timestamp
-        self._last_event: dict[tuple[Optional[int], str, Optional[str]], float] = {}
+        # Debounce state is scoped to the camera as track IDs are camera-local.
+        self._last_event: dict[tuple[str, Optional[int], str, Optional[str]], float] = {}
 
     def calculate_severity(
         self,
@@ -111,6 +111,7 @@ class EventEngine:
         event_type: str,
         zone_name: str | None = None,
         timestamp: float | None = None,
+        camera_id: str = "cam_01",
     ) -> bool:
         """
         Check if event passes deduplication / cooldown checks.
@@ -118,8 +119,10 @@ class EventEngine:
         if timestamp is None:
             timestamp = time.time()
 
-        key = (track_id, event_type, zone_name)
-        cooldown = 60.0 if "face" in event_type else self.cooldown_seconds
+        key = (camera_id, track_id, event_type, zone_name)
+        # A recognised identity is a single observation per camera session,
+        # rather than a new event for every frame in which a face is detected.
+        cooldown = 300.0 if "face" in event_type else self.cooldown_seconds
         if key in self._last_event:
             elapsed = timestamp - self._last_event[key]
             if elapsed < cooldown:
@@ -195,7 +198,7 @@ class EventEngine:
         now_dt = datetime.now(timezone.utc)
         ts_sec = timestamp_sec if timestamp_sec is not None else now_dt.timestamp()
 
-        if not self.should_process(track_id, event_type, zone_name, ts_sec):
+        if not self.should_process(track_id, event_type, zone_name, ts_sec, camera_id):
             return None
 
         is_known = (
@@ -214,6 +217,8 @@ class EventEngine:
             label += f": {face_name}"
         if plate_text:
             label += f": {plate_text}"
+        if metadata and metadata.get("entry_time"):
+            label += f" | Entry {metadata['entry_time']}"
 
         bbox_list = list(bbox) if bbox is not None else None
         snapshot_path = self.save_snapshot(

@@ -99,6 +99,7 @@ class VirtualFence:
 
         # Debounce state: (track_id, zone_name) → last alert timestamp
         self._last_alert: dict[tuple[int, str], float] = {}
+        self._active_inside: set[tuple[int, str]] = set()
 
     def update_zones(self, zones: list[dict[str, Any]]) -> None:
         """Update active fence zones dynamically."""
@@ -168,6 +169,7 @@ class VirtualFence:
             timestamp = time.time()
 
         events: list[FenceEvent] = []
+        active_inside: set[tuple[int, str]] = set()
 
         for obj in tracked_objects:
             center = obj.center
@@ -175,8 +177,11 @@ class VirtualFence:
             for zone in self.zones:
                 if self.is_inside(center, zone.np_polygon):
                     key = (obj.track_id, zone.name)
+                    active_inside.add(key)
 
-                    if self._should_alert(key, timestamp):
+                    # One intrusion means one zone entry. A new event is only
+                    # created after the tracked person has actually left and re-entered.
+                    if key not in self._active_inside:
                         events.append(FenceEvent(
                             track_id=obj.track_id,
                             zone_name=zone.name,
@@ -189,11 +194,14 @@ class VirtualFence:
                         ))
                         self._last_alert[key] = timestamp
 
+        self._active_inside = active_inside
+
         return events
 
     def reset(self) -> None:
         """Clear all cooldown state (e.g. when switching videos)."""
         self._last_alert.clear()
+        self._active_inside.clear()
 
     # ── Drawing utility ──────────────────────────────────────────────────
 

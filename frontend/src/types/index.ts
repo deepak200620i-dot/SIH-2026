@@ -86,6 +86,7 @@ export interface FaceEvent {
   matchedPersonId?: string;
   matchedPersonName?: string;
   confidence: number;
+  timeUnderCameraSeconds?: number;
 }
 
 // ANPR - Automatic Number Plate Recognition

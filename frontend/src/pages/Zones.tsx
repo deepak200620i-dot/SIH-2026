@@ -32,6 +32,9 @@ export const Zones: React.FC = () => {
   const [selectedCamera, setSelectedCamera] = useState<string>("");
   const [severity, setSeverity] = useState<"critical" | "high" | "medium" | "low">("high");
   const [vertices, setVertices] = useState<Array<[number, number]>>([]);
+  const [shape, setShape] = useState<"polygon" | "rectangle" | "circle">("polygon");
+  const [drawStart, setDrawStart] = useState<[number, number] | null>(null);
+  const [dragVertex, setDragVertex] = useState<number | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
@@ -187,17 +190,61 @@ export const Zones: React.FC = () => {
   }, [vertices, severity, isEditorOpen, editorStep]);
 
   // Click on canvas to add vertex
-  const handleCanvasClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
+  const pointForEvent = (e: React.PointerEvent<HTMLCanvasElement>): [number, number] | null => {
     const canvas = canvasRef.current;
-    if (!canvas) return;
+    if (!canvas) return null;
     const rect = canvas.getBoundingClientRect();
     const scaleX = canvas.width / rect.width;
     const scaleY = canvas.height / rect.height;
+    return [
+      Math.max(0, Math.min(640, Math.round((e.clientX - rect.left) * scaleX))),
+      Math.max(0, Math.min(360, Math.round((e.clientY - rect.top) * scaleY))),
+    ];
+  };
 
-    const x = Math.round((e.clientX - rect.left) * scaleX);
-    const y = Math.round((e.clientY - rect.top) * scaleY);
+  const shapeVertices = (start: [number, number], end: [number, number]) => {
+    const [x1, y1] = start;
+    const [x2, y2] = end;
+    if (shape === "rectangle") return [[x1, y1], [x2, y1], [x2, y2], [x1, y2]] as Array<[number, number]>;
+    const cx = (x1 + x2) / 2, cy = (y1 + y2) / 2;
+    const rx = Math.abs(x2 - x1) / 2, ry = Math.abs(y2 - y1) / 2;
+    return Array.from({ length: 20 }, (_, index) => [
+      Math.round(cx + rx * Math.cos((index / 20) * Math.PI * 2)),
+      Math.round(cy + ry * Math.sin((index / 20) * Math.PI * 2)),
+    ] as [number, number]);
+  };
 
-    setVertices((prev) => [...prev, [x, y]]);
+  const handleCanvasPointerDown = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    const point = pointForEvent(e);
+    if (!point) return;
+    e.currentTarget.setPointerCapture(e.pointerId);
+    const nearby = vertices.findIndex(([x, y]) => Math.hypot(x - point[0], y - point[1]) < 16);
+    if (nearby >= 0) {
+      setDragVertex(nearby);
+      return;
+    }
+    if (shape === "polygon") {
+      setVertices((previous) => [...previous, point]);
+    } else {
+      setDrawStart(point);
+      setVertices([point]);
+    }
+  };
+
+  const handleCanvasPointerMove = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    const point = pointForEvent(e);
+    if (!point) return;
+    if (dragVertex !== null) {
+      setVertices((previous) => previous.map((vertex, index) => index === dragVertex ? point : vertex));
+    } else if (drawStart && shape !== "polygon") {
+      setVertices(shapeVertices(drawStart, point));
+    }
+  };
+
+  const handleCanvasPointerUp = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    if (e.currentTarget.hasPointerCapture(e.pointerId)) e.currentTarget.releasePointerCapture(e.pointerId);
+    setDrawStart(null);
+    setDragVertex(null);
   };
 
   // Presets
@@ -518,13 +565,22 @@ export const Zones: React.FC = () => {
                   ref={canvasRef}
                   width={640}
                   height={360}
-                  onClick={handleCanvasClick}
-                  className="w-full h-full object-contain cursor-crosshair"
+                  onPointerDown={handleCanvasPointerDown}
+                  onPointerMove={handleCanvasPointerMove}
+                  onPointerUp={handleCanvasPointerUp}
+                  onPointerCancel={handleCanvasPointerUp}
+                  className="absolute inset-0 z-10 w-full h-full cursor-crosshair touch-none"
                 />
               </div>
 
               {/* Template Presets */}
               <div className="flex flex-wrap items-center gap-2 pt-1 text-xs">
+                <span className="text-gray-400">Shape:</span>
+                {(["polygon", "rectangle", "circle"] as const).map((option) => (
+                  <button key={option} type="button" onClick={() => { setShape(option); setVertices([]); }} className={`px-2.5 py-1 rounded border capitalize ${shape === option ? "bg-blue-600 border-blue-400 text-white" : "bg-gray-800 hover:bg-gray-700 border-gray-700 text-gray-200"}`}>
+                    {option}
+                  </button>
+                ))}
                 <span className="text-gray-400">Quick Presets:</span>
                 <button
                   type="button"

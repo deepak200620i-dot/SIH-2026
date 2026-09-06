@@ -17,6 +17,7 @@ import { useAlerts } from "@/hooks/useAlerts";
 
 
 import { Zones } from "@/pages/Zones";
+import { Intrusions } from "@/pages/Intrusions";
 
 export const App: React.FC = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(
@@ -43,6 +44,7 @@ export const App: React.FC = () => {
           <Route path="/persons" element={<Persons />} />
           <Route path="/anpr" element={<ANPR />} />
           <Route path="/zones" element={<Zones />} />
+          <Route path="/intrusions" element={<Intrusions />} />
           <Route path="/analytics" element={<Analytics />} />
           <Route path="/settings" element={<Settings />} />
           <Route path="*" element={<Navigate to="/dashboard" />} />
