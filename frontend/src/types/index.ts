@@ -19,6 +19,7 @@ export type FaceMatchStatus = "KNOWN" | "UNKNOWN" | "PARTIAL_MATCH";
 export interface Camera {
   id: string;
   name: string;
+  source?: string;
   location: string;
   status: CameraStatus;
   fps: number;

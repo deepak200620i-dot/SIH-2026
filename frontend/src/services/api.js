@@ -90,6 +90,7 @@ export const apiGetCameras = async () => {
                 return data.map((c) => ({
                     id: c.id,
                     name: c.name || c.id,
+                    source: c.source,
                     location: c.source || "Border Perimeter",
                     status: c.status === "active" || c.status === "online" ? "ONLINE" : "OFFLINE",
                     fps: 30,
