@@ -43,10 +43,6 @@ async def get_camera_preview(
         raise HTTPException(status_code=404, detail="Camera not found")
 
     source = camera["source"]
-    # IP Webcam's greeting page is HTML, not a video stream. Accept the common
-    # URL users copy from the phone and transparently target its MJPEG feed.
-    if source.rstrip("/").endswith("/greet.html"):
-        source = source.rsplit("/greet.html", 1)[0] + "/video"
 
     capture = _preview_captures.get(camera_id)
     if capture is None or not capture.isOpened():

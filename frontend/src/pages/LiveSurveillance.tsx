@@ -30,20 +30,17 @@ import {
   ProcessFrameResult,
 } from "@/services/api";
 
-const CameraPreview: React.FC<{ cameraId: string; name: string; source?: string }> = ({ cameraId, name, source }) => {
+const CameraPreview: React.FC<{ cameraId: string; name: string }> = ({ cameraId, name }) => {
   const [src, setSrc] = useState("");
   const [error, setError] = useState(false);
-  const [usingDirectStream, setUsingDirectStream] = useState(false);
   useEffect(() => {
-    setUsingDirectStream(false);
     const refresh = () => { setError(false); setSrc(`/api/cameras/${encodeURIComponent(cameraId)}/preview?t=${Date.now()}`); };
     refresh();
     const timer = window.setInterval(refresh, 1200);
     return () => window.clearInterval(timer);
   }, [cameraId]);
-  const directSource = source?.replace(/\/greet\.html(?:\?.*)?$/, "/video");
-  if (error && usingDirectStream) return <div className="text-center p-6 space-y-2"><div className="text-4xl">📹</div><p className="text-amber-300 text-sm font-medium">Feed unavailable</p><p className="text-gray-500 text-xs">Use the phone app's <code>/video</code> or RTSP stream URL—not <code>greet.html</code>.</p></div>;
-  return <img src={usingDirectStream ? directSource : src} onLoad={() => setError(false)} onError={() => { if (!usingDirectStream && directSource?.startsWith("http")) setUsingDirectStream(true); else setError(true); }} className="absolute inset-0 h-full w-full object-cover" alt={`${name} live feed`} />;
+  if (error) return <div className="text-center p-6 space-y-2"><div className="text-4xl">📹</div><p className="text-amber-300 text-sm font-medium">Feed unavailable</p><p className="text-gray-500 text-xs">Check the configured camera source and connection.</p></div>;
+  return <img src={src} onLoad={() => setError(false)} onError={() => setError(true)} className="absolute inset-0 h-full w-full object-cover" alt={`${name} live feed`} />;
 };
 
 export const LiveSurveillance: React.FC = () => {
@@ -82,7 +79,6 @@ export const LiveSurveillance: React.FC = () => {
   const [newCamId, setNewCamId] = useState("");
   const [newCamName, setNewCamName] = useState("");
   const [newCamSource, setNewCamSource] = useState("");
-  const [isPhoneSetup, setIsPhoneSetup] = useState(false);
 
   // Start / Stop Webcam
   const toggleWebcam = async () => {
@@ -285,7 +281,7 @@ export const LiveSurveillance: React.FC = () => {
     const success = await apiAddCamera({
       id: newCamId,
       name: newCamName,
-      source: isPhoneSetup && /\/greet\.html(?:$|\?)/.test(newCamSource) ? newCamSource.replace(/\/greet\.html(?:\?.*)?$/, "/video") : newCamSource,
+      source: newCamSource,
       status: "active",
     });
 
@@ -358,13 +354,6 @@ export const LiveSurveillance: React.FC = () => {
           >
             <Plus size={16} />
             <span>Add Camera</span>
-          </button>
-          <button
-            onClick={() => { setIsPhoneSetup(true); setIsAddCameraOpen(true); setNewCamId("phone_cctv_01"); setNewCamName("Smartphone CCTV"); setNewCamSource("http://192.168.1.100:8080/video"); }}
-            className="flex items-center gap-2 px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg font-medium text-sm transition shadow-lg"
-          >
-            <Video size={16} />
-            <span>Connect Phone Camera</span>
           </button>
         </div>
       </div>
@@ -440,7 +429,7 @@ export const LiveSurveillance: React.FC = () => {
           >
             {/* Stream Frame */}
             <div className="bg-gray-950 aspect-video flex items-center justify-center relative overflow-hidden">
-              <CameraPreview cameraId={camera.id} name={camera.name} source={camera.source} />
+              <CameraPreview cameraId={camera.id} name={camera.name} />
 
               {/* Status Badge Over Video */}
               <div className="absolute top-3 right-3 bg-black/70 backdrop-blur-sm px-2.5 py-1 rounded-md text-xs font-mono text-emerald-400 border border-emerald-500/30 flex items-center gap-1.5">
@@ -640,7 +629,7 @@ export const LiveSurveillance: React.FC = () => {
                 <h2 className="text-white font-bold text-lg">Add Camera Source</h2>
               </div>
               <button
-                onClick={() => { setIsAddCameraOpen(false); setIsPhoneSetup(false); }}
+                onClick={() => setIsAddCameraOpen(false)}
                 className="text-gray-400 hover:text-white transition"
               >
                 <X size={20} />
@@ -648,11 +637,6 @@ export const LiveSurveillance: React.FC = () => {
             </div>
 
             <form onSubmit={handleAddCamera} className="space-y-4">
-              {isPhoneSetup && <div className="rounded-lg border border-purple-500/40 bg-purple-950/30 p-3 text-xs text-purple-100 space-y-1">
-                <p className="font-semibold">Use your smartphone as a CCTV camera</p>
-                <p>Connect phone and laptop to the same Wi-Fi. Start an IP-camera app on the phone (for example, IP Webcam), then copy its MJPEG or RTSP address into Source.</p>
-                <p className="text-purple-200">Example: <code>http://192.168.1.100:8080/video</code> or <code>rtsp://192.168.1.100:8554/live</code></p>
-              </div>}
               <div>
                 <label className="block text-gray-400 text-xs mb-1 font-medium">Camera ID</label>
                 <input
@@ -681,7 +665,7 @@ export const LiveSurveillance: React.FC = () => {
                 </label>
                 <input
                   type="text"
-                  placeholder={isPhoneSetup ? "Paste the phone app's MJPEG / RTSP URL" : "e.g. rtsp://192.168.1.100:554/stream or 0 for Webcam"}
+                  placeholder="e.g. rtsp://192.168.1.100:554/stream or 0 for Webcam"
                   value={newCamSource}
                   onChange={(e) => setNewCamSource(e.target.value)}
                   className="w-full bg-gray-950 border border-gray-800 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-blue-500"
@@ -725,7 +709,7 @@ export const LiveSurveillance: React.FC = () => {
               </button>
             </div>
             <div className="relative bg-black aspect-video overflow-hidden">
-              <CameraPreview cameraId={selectedCamera.id} name={selectedCamera.name} source={selectedCamera.source} />
+              <CameraPreview cameraId={selectedCamera.id} name={selectedCamera.name} />
             </div>
           </div>
         </div>
