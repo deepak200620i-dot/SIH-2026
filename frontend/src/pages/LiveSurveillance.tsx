@@ -30,17 +30,20 @@ import {
   ProcessFrameResult,
 } from "@/services/api";
 
-const CameraPreview: React.FC<{ cameraId: string; name: string }> = ({ cameraId, name }) => {
+const CameraPreview: React.FC<{ cameraId: string; name: string; source?: string }> = ({ cameraId, name, source }) => {
   const [src, setSrc] = useState("");
   const [error, setError] = useState(false);
+  const [usingDirectStream, setUsingDirectStream] = useState(false);
   useEffect(() => {
+    setUsingDirectStream(false);
     const refresh = () => { setError(false); setSrc(`/api/cameras/${encodeURIComponent(cameraId)}/preview?t=${Date.now()}`); };
     refresh();
     const timer = window.setInterval(refresh, 1200);
     return () => window.clearInterval(timer);
   }, [cameraId]);
-  if (error) return <div className="text-center p-6 space-y-2"><div className="text-4xl">📹</div><p className="text-amber-300 text-sm font-medium">Feed unavailable</p><p className="text-gray-500 text-xs">Use the phone app's <code>/video</code> or RTSP stream URL—not <code>greet.html</code>.</p></div>;
-  return <img src={src} onLoad={() => setError(false)} onError={() => setError(true)} className="absolute inset-0 h-full w-full object-cover" alt={`${name} live feed`} />;
+  const directSource = source?.replace(/\/greet\.html(?:\?.*)?$/, "/video");
+  if (error && usingDirectStream) return <div className="text-center p-6 space-y-2"><div className="text-4xl">📹</div><p className="text-amber-300 text-sm font-medium">Feed unavailable</p><p className="text-gray-500 text-xs">Use the phone app's <code>/video</code> or RTSP stream URL—not <code>greet.html</code>.</p></div>;
+  return <img src={usingDirectStream ? directSource : src} onLoad={() => setError(false)} onError={() => { if (!usingDirectStream && directSource?.startsWith("http")) setUsingDirectStream(true); else setError(true); }} className="absolute inset-0 h-full w-full object-cover" alt={`${name} live feed`} />;
 };
 
 export const LiveSurveillance: React.FC = () => {
@@ -437,7 +440,7 @@ export const LiveSurveillance: React.FC = () => {
           >
             {/* Stream Frame */}
             <div className="bg-gray-950 aspect-video flex items-center justify-center relative overflow-hidden">
-              <CameraPreview cameraId={camera.id} name={camera.name} />
+              <CameraPreview cameraId={camera.id} name={camera.name} source={camera.source} />
 
               {/* Status Badge Over Video */}
               <div className="absolute top-3 right-3 bg-black/70 backdrop-blur-sm px-2.5 py-1 rounded-md text-xs font-mono text-emerald-400 border border-emerald-500/30 flex items-center gap-1.5">
@@ -721,13 +724,8 @@ export const LiveSurveillance: React.FC = () => {
                 Close View
               </button>
             </div>
-            <div className="bg-black aspect-video flex items-center justify-center">
-              <div className="text-gray-500 text-center space-y-2">
-                <div className="text-6xl">📹</div>
-                <div className="text-gray-400 font-mono text-sm">
-                  {selectedCamera.name} — Live RTSP Feed
-                </div>
-              </div>
+            <div className="relative bg-black aspect-video overflow-hidden">
+              <CameraPreview cameraId={selectedCamera.id} name={selectedCamera.name} source={selectedCamera.source} />
             </div>
           </div>
         </div>
