@@ -100,15 +100,6 @@ async def init_db(db_path: Optional[str] = None) -> None:
             )
         """)
 
-        # Insert default camera if empty
-        cursor = await db.execute("SELECT COUNT(*) FROM cameras")
-        count = (await cursor.fetchone())[0]
-        if count == 0:
-            await db.execute(
-                "INSERT INTO cameras (id, name, source, status) VALUES (?, ?, ?, ?)",
-                ("cam_01", "Border Gate Alpha", "data/videos/test.mp4", "active")
-            )
-
         await db.commit()
     finally:
         await db.close()
