@@ -376,6 +376,15 @@ export const apiUpdateAlertStatus = async (alertId: string, status: string): Pro
   }
 };
 
+export const apiDeleteCamera = async (cameraId: string): Promise<boolean> => {
+  try {
+    return (await fetch(`${API_BASE}/api/cameras/${encodeURIComponent(cameraId)}`, { method: "DELETE" })).ok;
+  } catch (err) {
+    console.error("Failed to delete camera:", err);
+    return false;
+  }
+};
+
 export const apiStopCamera = async (cameraId: string = "device_webcam"): Promise<void> => {
   try {
     await fetch(`${API_BASE}/api/video/stop-camera`, {

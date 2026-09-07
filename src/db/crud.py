@@ -196,6 +196,13 @@ async def add_camera(
     return dict(row)
 
 
+async def delete_camera(db: aiosqlite.Connection, camera_id: str) -> bool:
+    """Remove a configured camera source."""
+    cursor = await db.execute("DELETE FROM cameras WHERE id = ?", (camera_id,))
+    await db.commit()
+    return cursor.rowcount > 0
+
+
 async def get_known_faces(db: aiosqlite.Connection) -> list[dict[str, Any]]:
     """List all registered known faces."""
     cur = await db.execute("SELECT id, name, image_path, created_at FROM known_faces ORDER BY id DESC")

@@ -12,7 +12,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import Response
 
 from src.api.models import CameraCreate, CameraResponse
-from src.db.crud import add_camera, get_cameras
+from src.db.crud import add_camera, delete_camera, get_cameras
 from src.db.database import get_db
 
 router = APIRouter(prefix="/api/cameras", tags=["cameras"])
@@ -42,11 +42,17 @@ async def get_camera_preview(
     if camera is None:
         raise HTTPException(status_code=404, detail="Camera not found")
 
+    source = camera["source"]
+    # IP Webcam's greeting page is HTML, not a video stream. Accept the common
+    # URL users copy from the phone and transparently target its MJPEG feed.
+    if source.rstrip("/").endswith("/greet.html"):
+        source = source.rsplit("/greet.html", 1)[0] + "/video"
+
     capture = _preview_captures.get(camera_id)
     if capture is None or not capture.isOpened():
         if capture is not None:
             capture.release()
-        capture = cv2.VideoCapture(camera["source"])
+        capture = cv2.VideoCapture(source)
         _preview_captures[camera_id] = capture
 
     ok, frame = capture.read()
@@ -55,7 +61,7 @@ async def get_camera_preview(
         # them; RTSP sources are reopened on the next request.
         capture.release()
         _preview_captures.pop(camera_id, None)
-        capture = cv2.VideoCapture(camera["source"])
+        capture = cv2.VideoCapture(source)
         _preview_captures[camera_id] = capture
         ok, frame = capture.read()
         if not ok or frame is None:
@@ -90,3 +96,14 @@ async def create_or_update_camera(
         status=payload.status,
     )
     return CameraResponse(**cam)
+
+
+@router.delete("/{camera_id}")
+async def remove_camera(camera_id: str, db: aiosqlite.Connection = Depends(get_db)) -> dict[str, bool]:
+    """Delete a camera configuration and release its preview capture."""
+    capture = _preview_captures.pop(camera_id, None)
+    if capture is not None:
+        capture.release()
+    if not await delete_camera(db, camera_id):
+        raise HTTPException(status_code=404, detail="Camera not found")
+    return {"success": True}
