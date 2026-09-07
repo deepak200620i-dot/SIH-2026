@@ -18,15 +18,30 @@ import {
   Cpu,
   Layers,
   AlertTriangle,
+  Trash2,
 } from "lucide-react";
 import {
   apiUploadVideo,
   apiProcessWebcamFrame,
   apiStopCamera,
   apiAddCamera,
+  apiDeleteCamera,
   VideoUploadResult,
   ProcessFrameResult,
 } from "@/services/api";
+
+const CameraPreview: React.FC<{ cameraId: string; name: string }> = ({ cameraId, name }) => {
+  const [src, setSrc] = useState("");
+  const [error, setError] = useState(false);
+  useEffect(() => {
+    const refresh = () => { setError(false); setSrc(`/api/cameras/${encodeURIComponent(cameraId)}/preview?t=${Date.now()}`); };
+    refresh();
+    const timer = window.setInterval(refresh, 1200);
+    return () => window.clearInterval(timer);
+  }, [cameraId]);
+  if (error) return <div className="text-center p-6 space-y-2"><div className="text-4xl">📹</div><p className="text-amber-300 text-sm font-medium">Feed unavailable</p><p className="text-gray-500 text-xs">Use the phone app's <code>/video</code> or RTSP stream URL—not <code>greet.html</code>.</p></div>;
+  return <img src={src} onLoad={() => setError(false)} onError={() => setError(true)} className="absolute inset-0 h-full w-full object-cover" alt={`${name} live feed`} />;
+};
 
 export const LiveSurveillance: React.FC = () => {
   const { cameras, loading, refreshCameras } = useCameras();
@@ -267,7 +282,7 @@ export const LiveSurveillance: React.FC = () => {
     const success = await apiAddCamera({
       id: newCamId,
       name: newCamName,
-      source: newCamSource,
+      source: isPhoneSetup && /\/greet\.html(?:$|\?)/.test(newCamSource) ? newCamSource.replace(/\/greet\.html(?:\?.*)?$/, "/video") : newCamSource,
       status: "active",
     });
 
@@ -280,6 +295,15 @@ export const LiveSurveillance: React.FC = () => {
       alert("Camera registered successfully!");
     } else {
       alert("Failed to register camera.");
+    }
+  };
+
+  const handleDeleteCamera = async (camera: Camera) => {
+    if (!window.confirm(`Delete ${camera.name}? This removes only the saved camera source.`)) return;
+    if (await apiDeleteCamera(camera.id)) {
+      refreshCameras();
+    } else {
+      alert("Could not delete this camera.");
     }
   };
 
@@ -413,11 +437,7 @@ export const LiveSurveillance: React.FC = () => {
           >
             {/* Stream Frame */}
             <div className="bg-gray-950 aspect-video flex items-center justify-center relative overflow-hidden">
-              <div className="text-center p-6 space-y-2">
-                <div className="text-4xl">📹</div>
-                <div className="text-gray-400 font-medium text-sm">{camera.name}</div>
-                <div className="text-gray-600 text-xs font-mono">{camera.location}</div>
-              </div>
+              <CameraPreview cameraId={camera.id} name={camera.name} />
 
               {/* Status Badge Over Video */}
               <div className="absolute top-3 right-3 bg-black/70 backdrop-blur-sm px-2.5 py-1 rounded-md text-xs font-mono text-emerald-400 border border-emerald-500/30 flex items-center gap-1.5">
@@ -441,7 +461,7 @@ export const LiveSurveillance: React.FC = () => {
                   <p className="text-white font-semibold text-sm">{camera.name}</p>
                   <p className="text-gray-400 text-xs font-mono">{camera.location}</p>
                 </div>
-                <StatusBadge status={camera.status} />
+                <div className="flex items-center gap-2"><StatusBadge status={camera.status} /><button onClick={() => handleDeleteCamera(camera)} title="Delete camera" className="rounded p-1.5 text-red-400 hover:bg-red-950/50 hover:text-red-300"><Trash2 size={15} /></button></div>
               </div>
 
               {/* Real Status Metrics */}
