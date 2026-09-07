@@ -665,7 +665,7 @@ export const LiveSurveillance: React.FC = () => {
                 </label>
                 <input
                   type="text"
-                  placeholder="e.g. rtsp://192.168.1.100:554/stream or 0 for Webcam"
+                  placeholder="e.g. rtsp://cctv.example.local:554/stream or 0 for Webcam"
                   value={newCamSource}
                   onChange={(e) => setNewCamSource(e.target.value)}
                   className="w-full bg-gray-950 border border-gray-800 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-blue-500"
