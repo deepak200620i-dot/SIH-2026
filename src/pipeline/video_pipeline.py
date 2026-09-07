@@ -99,6 +99,7 @@ class VideoPipeline:
         self.event_engine = EventEngine(self.config)
         self._camera_entry_times: dict[tuple[str, int], float] = {}
         self._intrusion_sessions: dict[tuple[str, int, str], dict[str, Any]] = {}
+        self._face_sessions: dict[tuple[str, int], dict[str, Any]] = {}
 
     @staticmethod
     def _identity_id(match: FaceMatch) -> int:
@@ -109,12 +110,25 @@ class VideoPipeline:
             return zlib.crc32(match.name.encode("utf-8")) % 2_000_000_000
         return match.person_track_id
 
-    def register_intrusion_event(self, session_key: str, event_id: int) -> None:
-        """Attach the persisted database ID to its active intrusion session."""
-        for session in self._intrusion_sessions.values():
+    def register_session_event(self, session_key: str, event_id: int) -> None:
+        """Attach a persisted database ID to its active identity session."""
+        for session in [*self._intrusion_sessions.values(), *self._face_sessions.values()]:
             if session["session_key"] == session_key:
                 session["event_id"] = event_id
                 return
+
+    def close_camera_sessions(self, camera_id: str, timestamp: float | None = None) -> list[dict[str, Any]]:
+        """Finalize dwell times when a browser/mobile camera explicitly stops."""
+        now = timestamp if timestamp is not None else time.time()
+        updates: list[dict[str, Any]] = []
+        for sessions, duration_key in ((self._face_sessions, "time_under_camera_seconds"), (self._intrusion_sessions, "time_in_zone_seconds")):
+            for key, session in list(sessions.items()):
+                if key[0] != camera_id:
+                    continue
+                if session.get("event_id"):
+                    updates.append({"event_id": session["event_id"], duration_key: round(max(0, now - session["entry_time"]), 1), "exit_time": time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(now))})
+                del sessions[key]
+        return updates
 
     def process_frame(
         self,
@@ -235,7 +249,7 @@ class VideoPipeline:
             if evt:
                 generated_events.append(evt)
 
-        # Face Events (Debounced per person ID)
+        # Face Events: one record per stable identity for the whole camera session.
         for fm in face_matches:
             # Only trigger if face is recognized or if face_unknown cooldown passes
             event_type = "face_match" if fm.is_known else "face_unknown"
@@ -244,7 +258,14 @@ class VideoPipeline:
             # Prefer ByteTrack's camera-local ID; this is stable while a person
             # remains in the feed and prevents repeated unknown-face records.
             tid = self._identity_id(fm)
-            entry_time = self._camera_entry_times.get((camera_id, tid), ts) if tid is not None else ts
+            if tid is None or tid < 0:
+                continue
+            face_key = (camera_id, tid)
+            existing_face_session = self._face_sessions.get(face_key)
+            if existing_face_session:
+                existing_face_session["last_seen"] = ts
+                continue
+            session_key = f"face:{camera_id}:{tid}"
 
             # If there are restricted zones on this camera, check if person is in a zone
             in_restricted_zone = any(
@@ -266,13 +287,28 @@ class VideoPipeline:
                 camera_id=camera_id,
                 timestamp_sec=ts,
                 metadata={
-                    "entry_time": time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(entry_time)),
-                    "time_under_camera_seconds": round(ts - entry_time, 1),
+                    "session_key": session_key,
+                    "entry_time": time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(ts)),
+                    "time_under_camera_seconds": None,
                     "person_identity": fm.display_name,
                 },
             )
             if evt:
                 generated_events.append(evt)
+                self._face_sessions[face_key] = {"session_key": session_key, "entry_time": ts, "last_seen": ts, "event_id": None}
+
+        # A face session closes after a short absence, so the saved duration is
+        # the time physically observed by this camera—not wall-clock time later.
+        active_face_keys = {(camera_id, self._identity_id(fm)) for fm in face_matches if self._identity_id(fm) >= 0}
+        for key, session in list(self._face_sessions.items()):
+            if key not in active_face_keys and ts - session["last_seen"] >= 2.0:
+                if session.get("event_id"):
+                    completed_intrusions.append({
+                        "event_id": session["event_id"],
+                        "time_under_camera_seconds": round(session["last_seen"] - session["entry_time"], 1),
+                        "exit_time": time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(session["last_seen"])),
+                    })
+                del self._face_sessions[key]
 
         # ANPR Events
         for pm in plate_matches:
@@ -354,5 +390,6 @@ class VideoPipeline:
         self.event_engine.reset()
         self._camera_entry_times.clear()
         self._intrusion_sessions.clear()
+        self._face_sessions.clear()
         if self.face_recognizer:
             self.face_recognizer.reset()

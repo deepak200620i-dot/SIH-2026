@@ -120,8 +120,8 @@ async def process_webcam_frame(
             saved = await create_event(db, evt)
             evt_dict = saved.to_dict()
             events_data.append(evt_dict)
-            if evt.event_type == "intrusion" and evt.metadata and evt.metadata.get("session_key"):
-                pipeline.register_intrusion_event(evt.metadata["session_key"], saved.id)
+            if evt.metadata and evt.metadata.get("session_key"):
+                pipeline.register_session_event(evt.metadata["session_key"], saved.id)
             await ws_manager.broadcast(evt_dict)
         except Exception as err:
             print(f"Error persisting frame event: {err}")
@@ -174,6 +174,19 @@ def warmup_pipeline() -> None:
         get_pipeline()
     except Exception as e:
         print(f"Pipeline warmup notice: {e}")
+
+
+class StopCameraRequest(BaseModel):
+    camera_id: str = "device_webcam"
+
+
+@router.post("/stop-camera")
+async def stop_camera(payload: StopCameraRequest, db: aiosqlite.Connection = Depends(get_db)) -> dict[str, Any]:
+    """Close active dwell sessions and persist their final durations."""
+    updates = get_pipeline().close_camera_sessions(payload.camera_id)
+    for update in updates:
+        await update_event_metadata(db, update.pop("event_id"), update)
+    return {"status": "stopped", "updated_sessions": len(updates)}
 
 
 @router.post("/upload")
@@ -248,8 +261,8 @@ async def upload_and_process_video(
                     saved = await create_event(db, evt)
                     evt_dict = saved.to_dict()
                     generated_events_list.append(evt_dict)
-                    if evt.event_type == "intrusion" and evt.metadata and evt.metadata.get("session_key"):
-                        pipeline.register_intrusion_event(evt.metadata["session_key"], saved.id)
+                    if evt.metadata and evt.metadata.get("session_key"):
+                        pipeline.register_session_event(evt.metadata["session_key"], saved.id)
                     await ws_manager.broadcast(evt_dict)
                 except Exception as e:
                     print(f"Error persisting uploaded video event: {e}")

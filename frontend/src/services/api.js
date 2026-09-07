@@ -308,6 +308,18 @@ export const apiUpdateAlertStatus = async (alertId, status) => {
         return false;
     }
 };
+export const apiStopCamera = async (cameraId = "device_webcam") => {
+    try {
+        await fetch(`${API_BASE}/api/video/stop-camera`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ camera_id: cameraId }),
+        });
+    }
+    catch (err) {
+        console.warn("Could not finalize camera sessions:", err);
+    }
+};
 // ============ PERSONS (Known Faces) ============
 export const apiGetPersons = async () => {
     try {
@@ -392,7 +404,7 @@ export const apiGetFaceEvents = async (page = 1, pageSize = 20) => {
                 similarity: e.confidence ? Math.round(e.confidence * 100) : 85,
                 matchedPersonName: e.face_name,
                 confidence: e.confidence ? Math.round(e.confidence * 100) : 90,
-                timeUnderCameraSeconds: Math.max(0, Math.floor((Date.now() - new Date(e.metadata?.entry_time || e.timestamp).getTime()) / 1000)),
+                timeUnderCameraSeconds: typeof e.metadata?.time_under_camera_seconds === "number" ? Math.floor(e.metadata.time_under_camera_seconds) : undefined,
             }));
             return {
                 items,

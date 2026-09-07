@@ -22,6 +22,7 @@ import {
 import {
   apiUploadVideo,
   apiProcessWebcamFrame,
+  apiStopCamera,
   apiAddCamera,
   VideoUploadResult,
   ProcessFrameResult,
@@ -63,11 +64,13 @@ export const LiveSurveillance: React.FC = () => {
   const [newCamId, setNewCamId] = useState("");
   const [newCamName, setNewCamName] = useState("");
   const [newCamSource, setNewCamSource] = useState("");
+  const [isPhoneSetup, setIsPhoneSetup] = useState(false);
 
   // Start / Stop Webcam
   const toggleWebcam = async () => {
     if (isWebcamActive) {
       // Stop webcam
+      await apiStopCamera("device_webcam");
       if (streamRef.current) {
         streamRef.current.getTracks().forEach((track) => track.stop());
         streamRef.current = null;
@@ -328,6 +331,13 @@ export const LiveSurveillance: React.FC = () => {
           >
             <Plus size={16} />
             <span>Add Camera</span>
+          </button>
+          <button
+            onClick={() => { setIsPhoneSetup(true); setIsAddCameraOpen(true); setNewCamId("phone_cctv_01"); setNewCamName("Smartphone CCTV"); setNewCamSource("http://192.168.1.100:8080/video"); }}
+            className="flex items-center gap-2 px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg font-medium text-sm transition shadow-lg"
+          >
+            <Video size={16} />
+            <span>Connect Phone Camera</span>
           </button>
         </div>
       </div>
@@ -607,7 +617,7 @@ export const LiveSurveillance: React.FC = () => {
                 <h2 className="text-white font-bold text-lg">Add Camera Source</h2>
               </div>
               <button
-                onClick={() => setIsAddCameraOpen(false)}
+                onClick={() => { setIsAddCameraOpen(false); setIsPhoneSetup(false); }}
                 className="text-gray-400 hover:text-white transition"
               >
                 <X size={20} />
@@ -615,6 +625,11 @@ export const LiveSurveillance: React.FC = () => {
             </div>
 
             <form onSubmit={handleAddCamera} className="space-y-4">
+              {isPhoneSetup && <div className="rounded-lg border border-purple-500/40 bg-purple-950/30 p-3 text-xs text-purple-100 space-y-1">
+                <p className="font-semibold">Use your smartphone as a CCTV camera</p>
+                <p>Connect phone and laptop to the same Wi-Fi. Start an IP-camera app on the phone (for example, IP Webcam), then copy its MJPEG or RTSP address into Source.</p>
+                <p className="text-purple-200">Example: <code>http://192.168.1.100:8080/video</code> or <code>rtsp://192.168.1.100:8554/live</code></p>
+              </div>}
               <div>
                 <label className="block text-gray-400 text-xs mb-1 font-medium">Camera ID</label>
                 <input
@@ -643,7 +658,7 @@ export const LiveSurveillance: React.FC = () => {
                 </label>
                 <input
                   type="text"
-                  placeholder="e.g. rtsp://192.168.1.100:554/stream or 0 for Webcam"
+                  placeholder={isPhoneSetup ? "Paste the phone app's MJPEG / RTSP URL" : "e.g. rtsp://192.168.1.100:554/stream or 0 for Webcam"}
                   value={newCamSource}
                   onChange={(e) => setNewCamSource(e.target.value)}
                   className="w-full bg-gray-950 border border-gray-800 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-blue-500"
