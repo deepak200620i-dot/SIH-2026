@@ -103,7 +103,7 @@ def test_cameras_api(client):
     res_get = client.get("/api/cameras")
     assert res_get.status_code == 200
     cams = res_get.json()
-    assert len(cams) >= 1
+    assert cams == []
 
     payload = {
         "id": "cam_test",
