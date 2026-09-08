@@ -23,6 +23,7 @@ import numpy as np
 import yaml
 
 from src.anpr.plate_reader import PlateMatch, PlateReader
+from src.detection.weapon_detector import WeaponDetection, WeaponDetector
 from src.face.recognizer import FaceMatch, FaceRecognizer
 from src.rules.event_engine import Event, EventEngine
 from src.rules.loitering import LoiteringDetector, LoiteringEvent
@@ -41,6 +42,7 @@ class PipelineFrameResult:
     loitering_events: list[LoiteringEvent] = field(default_factory=list)
     face_matches: list[FaceMatch] = field(default_factory=list)
     plate_matches: list[PlateMatch] = field(default_factory=list)
+    weapon_detections: list[WeaponDetection] = field(default_factory=list)
     generated_events: list[Event] = field(default_factory=list)
     completed_intrusions: list[dict[str, Any]] = field(default_factory=list)
     annotated_frame: Optional[np.ndarray] = None
@@ -95,7 +97,11 @@ class VideoPipeline:
         if self.enable_anpr:
             self.plate_reader = PlateReader(self.config)
 
-        # 6. Event Engine
+        # 6. Dedicated weapon detector. This is intentionally separate from
+        # the COCO people/vehicle model and is inactive without local weights.
+        self.weapon_detector = WeaponDetector(self.config.get("weapon_detection", {}))
+
+        # 7. Event Engine
         self.event_engine = EventEngine(self.config)
         self._camera_entry_times: dict[tuple[str, int], float] = {}
         self._intrusion_sessions: dict[tuple[str, int, str], dict[str, Any]] = {}
@@ -147,6 +153,8 @@ class VideoPipeline:
         tracking_res = self.tracker.track(frame, frame_index=frame_index)
         tracked_objects = tracking_res.tracked_objects
 
+        weapon_detections = self.weapon_detector.detect(frame)
+
         # 2. Virtual Fence Intrusion
         fence_events = self.fence.check(tracked_objects, timestamp=ts)
 
@@ -179,6 +187,49 @@ class VideoPipeline:
             obj.track_id: self._identity_id(face_by_track[obj.track_id])
             for obj in tracked_objects if obj.track_id in face_by_track
         }
+
+        # A weapon is always a critical security event. Associate it with the
+        # person whose bounding box contains the weapon centre (with a small
+        # margin); an absent or unknown face is explicitly marked unauthorized.
+        for weapon in weapon_detections:
+            wx, wy = weapon.center
+            associated_people = []
+            for obj in tracked_objects:
+                if obj.class_name != "person":
+                    continue
+                x1, y1, x2, y2 = obj.bbox_xyxy
+                margin_x = max(20, int((x2 - x1) * 0.15))
+                margin_y = max(20, int((y2 - y1) * 0.15))
+                if x1 - margin_x <= wx <= x2 + margin_x and y1 - margin_y <= wy <= y2 + margin_y:
+                    associated_people.append(obj)
+            person = min(
+                associated_people,
+                key=lambda obj: abs(obj.center[0] - wx) + abs(obj.center[1] - wy),
+                default=None,
+            )
+            face = face_by_track.get(person.track_id) if person else None
+            unauthorized = face is None or not face.is_known
+            weapon_track_id = stable_ids.get(person.track_id, person.track_id) if person else -(weapon.class_id + 1)
+            event = self.event_engine.process_event(
+                event_type="weapon_detected",
+                track_id=weapon_track_id,
+                class_name=weapon.class_name,
+                face_name=face.name if face and face.is_known else "unknown",
+                confidence=weapon.confidence,
+                bbox=list(weapon.bbox_xyxy),
+                frame=frame,
+                camera_id=camera_id,
+                timestamp_sec=ts,
+                metadata={
+                    "weapon_class": weapon.class_name,
+                    "weapon_confidence": weapon.confidence,
+                    "unauthorized_person": unauthorized,
+                    "person_identity": face.display_name if face else "Unauthorized / unverified person",
+                    "associated_person_track_id": person.track_id if person else None,
+                },
+            )
+            if event:
+                generated_events.append(event)
 
         active_intrusions: set[tuple[str, int, str]] = set()
         for obj in tracked_objects:
@@ -353,6 +404,9 @@ class VideoPipeline:
         annotated = VirtualFence.draw_zones(annotated, self.fence.zones)
         annotated = Tracker.draw_tracks(annotated, tracked_objects)
 
+        if weapon_detections:
+            annotated = WeaponDetector.draw_detections(annotated, weapon_detections)
+
         if face_matches and self.face_recognizer:
             annotated = FaceRecognizer.draw_face_matches(annotated, face_matches)
 
@@ -370,6 +424,7 @@ class VideoPipeline:
             loitering_events=loitering_events,
             face_matches=face_matches,
             plate_matches=plate_matches,
+            weapon_detections=weapon_detections,
             generated_events=generated_events,
             completed_intrusions=completed_intrusions,
             annotated_frame=annotated,

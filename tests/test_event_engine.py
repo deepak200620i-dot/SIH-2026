@@ -48,6 +48,9 @@ def test_severity_calculation(engine):
     # Face unknown severity
     assert engine.calculate_severity("face_unknown") == "high"
 
+    # Weapon alerts are always critical, including when the person cannot be identified.
+    assert engine.calculate_severity("weapon_detected") == "critical"
+
     # Face match severity (known vs unknown)
     assert engine.calculate_severity("face_match", is_known=True) == "low"
     assert engine.calculate_severity("face_match", is_known=False) == "high"

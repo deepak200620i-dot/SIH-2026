@@ -84,6 +84,8 @@ class EventEngine:
         """
         Calculate event severity based on event type and attributes.
         """
+        if event_type == "weapon_detected":
+            return "critical"
         if event_type == "intrusion":
             if zone_severity:
                 return zone_severity.lower()
