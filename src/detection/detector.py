@@ -89,7 +89,7 @@ class Detector:
 
     def __init__(self, config: dict[str, Any]) -> None:
         self.config = config
-        self.model_path = config.get("model_path", "models/yolo26n.pt")
+        self.model_path = config.get("model_path", "models/yolov8.pt")
         self.confidence = config.get("confidence", 0.35)
         self.iou_threshold = config.get("iou_threshold", 0.45)
         self.target_classes = set(config.get("target_classes", ["person", "car"]))
