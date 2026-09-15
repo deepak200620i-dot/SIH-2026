@@ -1,17 +1,47 @@
 import React, { useState } from "react";
-import { Shield } from "lucide-react";
+import { Shield, AlertCircle, Loader2 } from "lucide-react";
 
 interface LoginProps {
-  onLogin: () => void;
+  onLogin: (token: string, role: string, username: string) => void;
 }
 
-export const Login: React.FC<LoginProps> = ({ onLogin }) => {
-  const [username, setUsername] = useState("operator");
-  const [password, setPassword] = useState("");
+const getApiBase = () => {
+  if (typeof window !== "undefined" && window.location.origin) {
+    return window.location.origin;
+  }
+  return "http://localhost:8000";
+};
 
-  const handleLogin = (e: React.FormEvent) => {
+export const Login: React.FC<LoginProps> = ({ onLogin }) => {
+  const [username, setUsername] = useState("admin");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    onLogin();
+    setError("");
+    setLoading(true);
+
+    try {
+      const res = await fetch(`${getApiBase()}/api/auth/login`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username, password }),
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        onLogin(data.access_token, data.role, data.username);
+      } else {
+        const errData = await res.json().catch(() => ({}));
+        setError(errData.detail || `Authentication failed (HTTP ${res.status})`);
+      }
+    } catch (err: any) {
+      setError(err?.message || "Network error — is the backend running?");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -24,7 +54,16 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
             <h1 className="text-3xl font-bold text-white">IBVAP</h1>
           </div>
           <p className="text-gray-400 text-sm">Intelligent Border Video Analytics</p>
+          <p className="text-emerald-500/70 text-xs mt-1">Secured with JWT Authentication & RBAC</p>
         </div>
+
+        {/* Error Banner */}
+        {error && (
+          <div className="mb-4 p-3 bg-red-900/30 border border-red-700 rounded flex items-center gap-2 text-red-200 text-sm">
+            <AlertCircle size={16} />
+            <span>{error}</span>
+          </div>
+        )}
 
         {/* Form */}
         <form onSubmit={handleLogin} className="space-y-4">
@@ -51,17 +90,19 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
 
           <button
             type="submit"
-            className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 rounded transition"
+            disabled={loading}
+            className="w-full bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-semibold py-2 rounded transition flex items-center justify-center gap-2"
           >
-            Login
+            {loading && <Loader2 size={16} className="animate-spin" />}
+            {loading ? "Authenticating..." : "Login"}
           </button>
         </form>
 
-        {/* Demo Info */}
+        {/* Credentials Info */}
         <div className="mt-6 p-4 bg-blue-900/20 border border-blue-700 rounded text-sm text-blue-200">
-          <p className="font-semibold mb-1">Demo Credentials</p>
-          <p>Username: operator</p>
-          <p>Password: (any)</p>
+          <p className="font-semibold mb-1">Default Credentials</p>
+          <p>Admin: admin / Admin@123</p>
+          <p>Operator: operator / operator123</p>
         </div>
       </div>
     </div>

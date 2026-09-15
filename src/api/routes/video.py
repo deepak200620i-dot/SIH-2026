@@ -16,7 +16,6 @@ import tempfile
 import time
 from typing import Any, Optional
 
-import aiosqlite
 import cv2
 import numpy as np
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
@@ -24,8 +23,9 @@ from pydantic import BaseModel
 
 from src.api.routes.events import ws_manager
 from src.db.crud import create_event, update_event_metadata
-from src.db.database import get_db
+from src.db.database import get_db, get_db_pool
 from src.pipeline.video_pipeline import VideoPipeline
+from src.security.blockchain.background import enqueue_ledger_registration
 
 router = APIRouter(prefix="/api/video", tags=["video"])
 
@@ -83,7 +83,7 @@ class FrameProcessResponse(BaseModel):
 @router.post("/process-frame", response_model=FrameProcessResponse)
 async def process_webcam_frame(
     payload: FrameProcessRequest,
-    db: aiosqlite.Connection = Depends(get_db),
+    db=Depends(get_db),
 ) -> FrameProcessResponse:
     """
     Process a single base64 image frame from the browser webcam
@@ -117,12 +117,41 @@ async def process_webcam_frame(
     # Persist and broadcast any generated events
     for evt in res.generated_events:
         try:
-            saved = await create_event(db, evt)
-            evt_dict = saved.to_dict()
+            saved = await create_event(
+                db,
+                timestamp=evt.timestamp,
+                event_type=evt.event_type,
+                severity=evt.severity,
+                camera_id=evt.camera_id,
+                track_id=evt.track_id,
+                class_name=evt.class_name,
+                zone_name=evt.zone_name,
+                face_name=evt.face_name,
+                plate_text=evt.plate_text,
+                confidence=evt.confidence,
+                bbox=evt.bbox,
+                snapshot=evt.snapshot,
+                metadata=evt.metadata,
+                status=evt.status,
+                evidence_sha256=evt.evidence_sha256,
+                integrity_status=evt.integrity_status,
+            )
+            evt_dict = dict(saved)
             events_data.append(evt_dict)
             if evt.metadata and evt.metadata.get("session_key"):
-                pipeline.register_session_event(evt.metadata["session_key"], saved.id)
+                pipeline.register_session_event(evt.metadata["session_key"], saved["id"])
             await ws_manager.broadcast(evt_dict)
+
+            # Background ledger registration
+            enqueue_ledger_registration(
+                pool=get_db_pool(),
+                event_id=saved["id"],
+                camera_id=evt.camera_id,
+                event_type=evt.event_type,
+                severity=evt.severity,
+                timestamp=evt.timestamp,
+                evidence_sha256=evt.evidence_sha256,
+            )
         except Exception as err:
             print(f"Error persisting frame event: {err}")
 
@@ -181,7 +210,7 @@ class StopCameraRequest(BaseModel):
 
 
 @router.post("/stop-camera")
-async def stop_camera(payload: StopCameraRequest, db: aiosqlite.Connection = Depends(get_db)) -> dict[str, Any]:
+async def stop_camera(payload: StopCameraRequest, db=Depends(get_db)) -> dict[str, Any]:
     """Close active dwell sessions and persist their final durations."""
     updates = get_pipeline().close_camera_sessions(payload.camera_id)
     for update in updates:
@@ -195,7 +224,7 @@ async def upload_and_process_video(
     camera_id: str = Form("upload_cam_01"),
     frame_skip: int = Form(5),
     max_frames: int = Form(150),
-    db: aiosqlite.Connection = Depends(get_db),
+    db=Depends(get_db),
 ) -> dict[str, Any]:
     """
     Upload a recorded video (.mp4, .avi, .mov), process it frame-by-frame
@@ -258,12 +287,40 @@ async def upload_and_process_video(
             for evt in res.generated_events:
                 total_events_generated += 1
                 try:
-                    saved = await create_event(db, evt)
-                    evt_dict = saved.to_dict()
+                    saved = await create_event(
+                        db,
+                        timestamp=evt.timestamp,
+                        event_type=evt.event_type,
+                        severity=evt.severity,
+                        camera_id=evt.camera_id,
+                        track_id=evt.track_id,
+                        class_name=evt.class_name,
+                        zone_name=evt.zone_name,
+                        face_name=evt.face_name,
+                        plate_text=evt.plate_text,
+                        confidence=evt.confidence,
+                        bbox=evt.bbox,
+                        snapshot=evt.snapshot,
+                        metadata=evt.metadata,
+                        status=evt.status,
+                        evidence_sha256=evt.evidence_sha256,
+                        integrity_status=evt.integrity_status,
+                    )
+                    evt_dict = dict(saved)
                     generated_events_list.append(evt_dict)
                     if evt.metadata and evt.metadata.get("session_key"):
-                        pipeline.register_session_event(evt.metadata["session_key"], saved.id)
+                        pipeline.register_session_event(evt.metadata["session_key"], saved["id"])
                     await ws_manager.broadcast(evt_dict)
+
+                    enqueue_ledger_registration(
+                        pool=get_db_pool(),
+                        event_id=saved["id"],
+                        camera_id=evt.camera_id,
+                        event_type=evt.event_type,
+                        severity=evt.severity,
+                        timestamp=evt.timestamp,
+                        evidence_sha256=evt.evidence_sha256,
+                    )
                 except Exception as e:
                     print(f"Error persisting uploaded video event: {e}")
 

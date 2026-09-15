@@ -11,7 +11,6 @@ import shutil
 import uuid
 from typing import Any
 
-import aiosqlite
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 
 from src.api.models import KnownFaceResponse
@@ -24,7 +23,7 @@ FACES_DIR = "data/faces"
 
 @router.get("", response_model=list[KnownFaceResponse])
 async def list_faces(
-    db: aiosqlite.Connection = Depends(get_db),
+    db=Depends(get_db),
 ) -> list[KnownFaceResponse]:
     """Retrieve all known face records in the gallery."""
     os.makedirs(FACES_DIR, exist_ok=True)
@@ -36,7 +35,7 @@ async def list_faces(
 async def upload_face(
     name: str = Form(...),
     image: UploadFile = File(...),
-    db: aiosqlite.Connection = Depends(get_db),
+    db=Depends(get_db),
 ) -> KnownFaceResponse:
     """Upload and register a new known face into the gallery."""
     clean_name = name.strip()
@@ -70,7 +69,7 @@ async def upload_face(
 @router.delete("/{face_id}", response_model=dict[str, Any])
 async def remove_face(
     face_id: int,
-    db: aiosqlite.Connection = Depends(get_db),
+    db=Depends(get_db),
 ) -> dict[str, Any]:
     """Delete a known face by ID."""
     success = await delete_known_face(db, face_id)
