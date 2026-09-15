@@ -133,8 +133,7 @@ async def test_cameras_crud(temp_db_path):
 
     try:
         cams = await get_cameras(db)
-        assert len(cams) >= 1
-        assert cams[0]["id"] == "cam_01"
+        assert cams == []
 
         new_cam = await add_camera(
             db, camera_id="cam_02", name="Gate Beta", source="data/videos/test2.mp4"
@@ -143,6 +142,7 @@ async def test_cameras_crud(temp_db_path):
         assert new_cam["name"] == "Gate Beta"
 
         updated_cams = await get_cameras(db)
-        assert len(updated_cams) >= 2
+        assert len(updated_cams) == 1
+        assert updated_cams[0]["id"] == "cam_02"
     finally:
         await db.close()

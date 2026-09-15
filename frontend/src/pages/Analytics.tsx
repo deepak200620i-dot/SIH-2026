@@ -54,7 +54,7 @@ export const Analytics: React.FC = () => {
         <ResponsiveContainer width="100%" height={300}>
           <LineChart data={analytics.alertsTrend}>
             <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
-            <XAxis stroke="#6b7280" />
+            <XAxis dataKey="timestamp" stroke="#6b7280" minTickGap={24} />
             <YAxis stroke="#6b7280" />
             <Tooltip
               contentStyle={{ backgroundColor: "#1f2937", border: "1px solid #374151" }}
@@ -140,7 +140,7 @@ export const Analytics: React.FC = () => {
         <ResponsiveContainer width="100%" height={300}>
           <LineChart data={analytics.personDetections}>
             <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
-            <XAxis stroke="#6b7280" />
+            <XAxis dataKey="timestamp" stroke="#6b7280" minTickGap={24} />
             <YAxis stroke="#6b7280" />
             <Tooltip
               contentStyle={{ backgroundColor: "#1f2937", border: "1px solid #374151" }}

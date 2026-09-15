@@ -27,6 +27,7 @@ export const Zones: React.FC = () => {
 
   // Editor Modal State
   const [isEditorOpen, setIsEditorOpen] = useState(false);
+<<<<<<< HEAD
   const [zoneName, setZoneName] = useState("");
   const [selectedCamera, setSelectedCamera] = useState<string>("all");
   const [severity, setSeverity] = useState<"critical" | "high" | "medium" | "low">("high");
@@ -35,6 +36,34 @@ export const Zones: React.FC = () => {
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
 
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+=======
+  const [editorStep, setEditorStep] = useState<"camera" | "draw">("camera");
+  const [zoneName, setZoneName] = useState("");
+  const [selectedCamera, setSelectedCamera] = useState<string>("");
+  const [severity, setSeverity] = useState<"critical" | "high" | "medium" | "low">("high");
+  const [vertices, setVertices] = useState<Array<[number, number]>>([]);
+  const [shape, setShape] = useState<"polygon" | "rectangle" | "circle">("polygon");
+  const [drawStart, setDrawStart] = useState<[number, number] | null>(null);
+  const [dragVertex, setDragVertex] = useState<number | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+  const [statusMessage, setStatusMessage] = useState<string | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [previewError, setPreviewError] = useState(false);
+
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const webcamPreviewRef = useRef<HTMLVideoElement | null>(null);
+  const webcamStreamRef = useRef<MediaStream | null>(null);
+
+  const openZoneEditor = () => {
+    setIsEditorOpen(true);
+    setEditorStep("camera");
+    setSelectedCamera("");
+    setVertices([]);
+    setZoneName("");
+    setPreviewUrl(null);
+    setPreviewError(false);
+  };
+>>>>>>> 31c5f44e9caa22f979b450929276656e6146cd3b
 
   const fetchZones = async () => {
     try {
@@ -52,6 +81,53 @@ export const Zones: React.FC = () => {
     fetchZones();
   }, []);
 
+<<<<<<< HEAD
+=======
+  // Refresh a server camera frame while the operator is drawing. The image is
+  // intentionally displayed underneath the coordinate canvas, so saved points
+  // retain the same 640 × 360 coordinate space used by the analytics pipeline.
+  useEffect(() => {
+    if (!isEditorOpen || editorStep !== "draw" || !selectedCamera || selectedCamera === "device_webcam") {
+      setPreviewUrl(null);
+      return;
+    }
+
+    const refreshPreview = () => {
+      setPreviewUrl(`/api/cameras/${encodeURIComponent(selectedCamera)}/preview?t=${Date.now()}`);
+    };
+    refreshPreview();
+    const interval = window.setInterval(refreshPreview, 1250);
+    return () => window.clearInterval(interval);
+  }, [isEditorOpen, editorStep, selectedCamera]);
+
+  // The local device camera is only available to the browser, so it is shown
+  // directly when that camera is selected in the first step.
+  useEffect(() => {
+    if (!isEditorOpen || editorStep !== "draw" || selectedCamera !== "device_webcam") return;
+
+    let active = true;
+    navigator.mediaDevices.getUserMedia({ video: { width: { ideal: 1280 }, height: { ideal: 720 } }, audio: false })
+      .then((stream) => {
+        if (!active) {
+          stream.getTracks().forEach((track) => track.stop());
+          return;
+        }
+        webcamStreamRef.current = stream;
+        if (webcamPreviewRef.current) {
+          webcamPreviewRef.current.srcObject = stream;
+          webcamPreviewRef.current.play().catch(() => undefined);
+        }
+      })
+      .catch(() => setPreviewError(true));
+
+    return () => {
+      active = false;
+      webcamStreamRef.current?.getTracks().forEach((track) => track.stop());
+      webcamStreamRef.current = null;
+    };
+  }, [isEditorOpen, editorStep, selectedCamera]);
+
+>>>>>>> 31c5f44e9caa22f979b450929276656e6146cd3b
   // Redraw canvas when vertices change
   useEffect(() => {
     if (!canvasRef.current || !isEditorOpen) return;
@@ -59,6 +135,7 @@ export const Zones: React.FC = () => {
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
+<<<<<<< HEAD
     // Background grid
     ctx.fillStyle = "#0f172a";
     ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -84,6 +161,18 @@ export const Zones: React.FC = () => {
       ctx.fillStyle = "#64748b";
       ctx.font = "14px sans-serif";
       ctx.textAlign = "center";
+=======
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    if (vertices.length === 0) {
+      // Guide prompt
+      ctx.fillStyle = "rgba(255, 255, 255, 0.78)";
+      ctx.font = "14px sans-serif";
+      ctx.textAlign = "center";
+      ctx.fillStyle = "rgba(15, 23, 42, 0.78)";
+      ctx.fillRect(135, canvas.height / 2 - 22, 370, 44);
+      ctx.fillStyle = "rgba(255, 255, 255, 0.9)";
+>>>>>>> 31c5f44e9caa22f979b450929276656e6146cd3b
       ctx.fillText(
         "Click anywhere inside this frame to place polygon corner points",
         canvas.width / 2,
@@ -140,6 +229,7 @@ export const Zones: React.FC = () => {
       ctx.textAlign = "center";
       ctx.fillText(String(idx + 1), vx, vy - 10);
     });
+<<<<<<< HEAD
   }, [vertices, severity, isEditorOpen]);
 
   // Click on canvas to add vertex
@@ -154,6 +244,66 @@ export const Zones: React.FC = () => {
     const y = Math.round((e.clientY - rect.top) * scaleY);
 
     setVertices((prev) => [...prev, [x, y]]);
+=======
+  }, [vertices, severity, isEditorOpen, editorStep]);
+
+  // Click on canvas to add vertex
+  const pointForEvent = (e: React.PointerEvent<HTMLCanvasElement>): [number, number] | null => {
+    const canvas = canvasRef.current;
+    if (!canvas) return null;
+    const rect = canvas.getBoundingClientRect();
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
+    return [
+      Math.max(0, Math.min(640, Math.round((e.clientX - rect.left) * scaleX))),
+      Math.max(0, Math.min(360, Math.round((e.clientY - rect.top) * scaleY))),
+    ];
+  };
+
+  const shapeVertices = (start: [number, number], end: [number, number]) => {
+    const [x1, y1] = start;
+    const [x2, y2] = end;
+    if (shape === "rectangle") return [[x1, y1], [x2, y1], [x2, y2], [x1, y2]] as Array<[number, number]>;
+    const cx = (x1 + x2) / 2, cy = (y1 + y2) / 2;
+    const rx = Math.abs(x2 - x1) / 2, ry = Math.abs(y2 - y1) / 2;
+    return Array.from({ length: 20 }, (_, index) => [
+      Math.round(cx + rx * Math.cos((index / 20) * Math.PI * 2)),
+      Math.round(cy + ry * Math.sin((index / 20) * Math.PI * 2)),
+    ] as [number, number]);
+  };
+
+  const handleCanvasPointerDown = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    const point = pointForEvent(e);
+    if (!point) return;
+    e.currentTarget.setPointerCapture(e.pointerId);
+    const nearby = vertices.findIndex(([x, y]) => Math.hypot(x - point[0], y - point[1]) < 16);
+    if (nearby >= 0) {
+      setDragVertex(nearby);
+      return;
+    }
+    if (shape === "polygon") {
+      setVertices((previous) => [...previous, point]);
+    } else {
+      setDrawStart(point);
+      setVertices([point]);
+    }
+  };
+
+  const handleCanvasPointerMove = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    const point = pointForEvent(e);
+    if (!point) return;
+    if (dragVertex !== null) {
+      setVertices((previous) => previous.map((vertex, index) => index === dragVertex ? point : vertex));
+    } else if (drawStart && shape !== "polygon") {
+      setVertices(shapeVertices(drawStart, point));
+    }
+  };
+
+  const handleCanvasPointerUp = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    if (e.currentTarget.hasPointerCapture(e.pointerId)) e.currentTarget.releasePointerCapture(e.pointerId);
+    setDrawStart(null);
+    setDragVertex(null);
+>>>>>>> 31c5f44e9caa22f979b450929276656e6146cd3b
   };
 
   // Presets
@@ -199,6 +349,13 @@ export const Zones: React.FC = () => {
       alert("Please place at least 3 points on the canvas to form a polygon.");
       return;
     }
+<<<<<<< HEAD
+=======
+    if (!selectedCamera) {
+      alert("Choose a camera before drawing a zone.");
+      return;
+    }
+>>>>>>> 31c5f44e9caa22f979b450929276656e6146cd3b
 
     setIsSaving(true);
     const created = await apiCreateFenceZone({
@@ -253,11 +410,15 @@ export const Zones: React.FC = () => {
         </div>
 
         <button
+<<<<<<< HEAD
           onClick={() => {
             setIsEditorOpen(true);
             setVertices([]);
             setZoneName("");
           }}
+=======
+          onClick={openZoneEditor}
+>>>>>>> 31c5f44e9caa22f979b450929276656e6146cd3b
           className="flex items-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium text-sm transition shadow-lg shadow-blue-600/30"
         >
           <Plus size={16} />
@@ -297,11 +458,15 @@ export const Zones: React.FC = () => {
             You currently have no active virtual fence boundaries. Click the button below to draw your first polygon zone on camera feeds.
           </p>
           <button
+<<<<<<< HEAD
             onClick={() => {
               setIsEditorOpen(true);
               setVertices([]);
               setZoneName("");
             }}
+=======
+            onClick={openZoneEditor}
+>>>>>>> 31c5f44e9caa22f979b450929276656e6146cd3b
             className="inline-flex items-center gap-2 px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium text-sm transition"
           >
             <Plus size={16} />
@@ -404,7 +569,11 @@ export const Zones: React.FC = () => {
                 <div>
                   <h2 className="text-white font-bold text-lg">Define New Restricted Zone</h2>
                   <p className="text-gray-400 text-xs">
+<<<<<<< HEAD
                     Click anywhere on the canvas below to place polygon boundary points.
+=======
+                    {editorStep === "camera" ? "First choose the camera whose feed you want to mark." : "Click on the live feed to place polygon boundary points."}
+>>>>>>> 31c5f44e9caa22f979b450929276656e6146cd3b
                   </p>
                 </div>
               </div>
@@ -416,10 +585,46 @@ export const Zones: React.FC = () => {
               </button>
             </div>
 
+<<<<<<< HEAD
             {/* Canvas Interactive Drawing Box */}
             <div className="space-y-2">
               <div className="flex items-center justify-between text-xs text-gray-400">
                 <span>Perimeter Canvas (640 x 360 Standard Resolution)</span>
+=======
+            {editorStep === "camera" ? (
+              <div className="space-y-4">
+                <div className="rounded-xl border border-blue-500/30 bg-blue-950/30 p-4 text-sm text-blue-100">
+                  Zones are camera-specific. Select the feed first, then draw directly over its live preview.
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <button
+                    type="button"
+                    onClick={() => { setSelectedCamera("device_webcam"); setEditorStep("draw"); setPreviewError(false); }}
+                    className="rounded-xl border border-gray-700 bg-gray-950 p-4 text-left hover:border-blue-500 hover:bg-gray-800 transition"
+                  >
+                    <span className="flex items-center gap-2 text-white font-semibold"><CameraIcon size={16} className="text-blue-400" /> Device Webcam</span>
+                    <span className="block mt-1 text-xs text-gray-400">Use this browser's live camera feed.</span>
+                  </button>
+                  {cameras.map((camera) => (
+                    <button
+                      key={camera.id}
+                      type="button"
+                      onClick={() => { setSelectedCamera(camera.id); setEditorStep("draw"); setPreviewError(false); }}
+                      className="rounded-xl border border-gray-700 bg-gray-950 p-4 text-left hover:border-blue-500 hover:bg-gray-800 transition"
+                    >
+                      <span className="flex items-center gap-2 text-white font-semibold"><CameraIcon size={16} className="text-blue-400" /> {camera.name}</span>
+                      <span className="block mt-1 text-xs text-gray-400 font-mono">{camera.id}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ) : (
+            <>
+            {/* Canvas Interactive Drawing Box */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between text-xs text-gray-400">
+                <span>Live feed: <strong className="text-white">{selectedCamera === "device_webcam" ? "Device Webcam" : cameras.find((camera) => camera.id === selectedCamera)?.name || selectedCamera}</strong> (640 × 360 mapping)</span>
+>>>>>>> 31c5f44e9caa22f979b450929276656e6146cd3b
                 <div className="flex items-center gap-2">
                   <span className="text-white font-semibold">{vertices.length} points placed</span>
                   {vertices.length > 0 && (
@@ -435,17 +640,47 @@ export const Zones: React.FC = () => {
               </div>
 
               <div className="relative aspect-video max-h-[380px] bg-slate-950 rounded-xl overflow-hidden border border-gray-700 flex items-center justify-center">
+<<<<<<< HEAD
+=======
+                {selectedCamera === "device_webcam" ? (
+                  <video ref={webcamPreviewRef} autoPlay playsInline muted className="absolute inset-0 w-full h-full object-cover" />
+                ) : previewUrl && (
+                  <img src={previewUrl} onLoad={() => setPreviewError(false)} onError={() => setPreviewError(true)} className="absolute inset-0 w-full h-full object-cover" alt="Selected camera live preview" />
+                )}
+                {previewError && (
+                  <div className="absolute inset-0 flex items-center justify-center bg-slate-950 px-6 text-center text-sm text-amber-300">
+                    The camera feed is unavailable. Check the camera source and try again.
+                  </div>
+                )}
+>>>>>>> 31c5f44e9caa22f979b450929276656e6146cd3b
                 <canvas
                   ref={canvasRef}
                   width={640}
                   height={360}
+<<<<<<< HEAD
                   onClick={handleCanvasClick}
                   className="w-full h-full object-contain cursor-crosshair"
+=======
+                  onPointerDown={handleCanvasPointerDown}
+                  onPointerMove={handleCanvasPointerMove}
+                  onPointerUp={handleCanvasPointerUp}
+                  onPointerCancel={handleCanvasPointerUp}
+                  className="absolute inset-0 z-10 w-full h-full cursor-crosshair touch-none"
+>>>>>>> 31c5f44e9caa22f979b450929276656e6146cd3b
                 />
               </div>
 
               {/* Template Presets */}
               <div className="flex flex-wrap items-center gap-2 pt-1 text-xs">
+<<<<<<< HEAD
+=======
+                <span className="text-gray-400">Shape:</span>
+                {(["polygon", "rectangle", "circle"] as const).map((option) => (
+                  <button key={option} type="button" onClick={() => { setShape(option); setVertices([]); }} className={`px-2.5 py-1 rounded border capitalize ${shape === option ? "bg-blue-600 border-blue-400 text-white" : "bg-gray-800 hover:bg-gray-700 border-gray-700 text-gray-200"}`}>
+                    {option}
+                  </button>
+                ))}
+>>>>>>> 31c5f44e9caa22f979b450929276656e6146cd3b
                 <span className="text-gray-400">Quick Presets:</span>
                 <button
                   type="button"
@@ -495,6 +730,7 @@ export const Zones: React.FC = () => {
                   />
                 </div>
 
+<<<<<<< HEAD
                 <div>
                   <label className="block text-gray-300 text-xs font-semibold mb-1.5">
                     Associated Camera
@@ -512,6 +748,11 @@ export const Zones: React.FC = () => {
                       </option>
                     ))}
                   </select>
+=======
+                <div className="rounded-lg border border-gray-700 bg-gray-950 px-3 py-2">
+                  <span className="block text-gray-400 text-xs">Associated Camera</span>
+                  <span className="block mt-0.5 text-white text-sm font-medium">{selectedCamera === "device_webcam" ? "Device Webcam" : cameras.find((camera) => camera.id === selectedCamera)?.name || selectedCamera}</span>
+>>>>>>> 31c5f44e9caa22f979b450929276656e6146cd3b
                 </div>
 
                 <div>
@@ -552,6 +793,11 @@ export const Zones: React.FC = () => {
                 </button>
               </div>
             </form>
+<<<<<<< HEAD
+=======
+            </>
+            )}
+>>>>>>> 31c5f44e9caa22f979b450929276656e6146cd3b
           </div>
         </div>
       )}

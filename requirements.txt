@@ -10,9 +10,22 @@ onnxruntime>=1.17               # Use onnxruntime-gpu for CUDA acceleration
 fastapi>=0.110
 uvicorn[standard]>=0.28
 python-multipart>=0.0.9
+<<<<<<< HEAD
 aiosqlite>=0.20
+=======
+>>>>>>> 31c5f44e9caa22f979b450929276656e6146cd3b
 pydantic>=2.6
 websockets>=12.0
 httpx>=0.27
 easyocr>=1.7.0
 
+<<<<<<< HEAD
+=======
+# PostgreSQL (Supabase)
+asyncpg>=0.30
+
+# Authentication & Security
+python-jose[cryptography]>=3.3
+passlib[bcrypt]>=1.7
+bcrypt>=4.0
+>>>>>>> 31c5f44e9caa22f979b450929276656e6146cd3b

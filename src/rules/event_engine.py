@@ -50,6 +50,8 @@ class Event:
     status: str = "ACTIVE"
     id: Optional[int] = None
     created_at: Optional[str] = None
+    evidence_sha256: Optional[str] = None  # SHA-256 of evidence file
+    integrity_status: str = "PENDING"      # PENDING, VERIFIED, FAILED
 
     def to_dict(self) -> dict[str, Any]:
         """Convert event dataclass to dictionary."""
@@ -72,8 +74,8 @@ class EventEngine:
         self.cooldown_seconds: float = float(events_cfg.get("cooldown_seconds", 30.0))
         self.evidence_path: str = events_cfg.get("evidence_path", "data/evidence")
 
-        # Debounce state: (track_id, event_type, zone_name) -> timestamp
-        self._last_event: dict[tuple[Optional[int], str, Optional[str]], float] = {}
+        # Debounce state is scoped to the camera as track IDs are camera-local.
+        self._last_event: dict[tuple[str, Optional[int], str, Optional[str]], float] = {}
 
     def calculate_severity(
         self,
@@ -84,6 +86,8 @@ class EventEngine:
         """
         Calculate event severity based on event type and attributes.
         """
+        if event_type == "weapon_detected":
+            return "critical"
         if event_type == "intrusion":
             if zone_severity:
                 return zone_severity.lower()
@@ -111,6 +115,7 @@ class EventEngine:
         event_type: str,
         zone_name: str | None = None,
         timestamp: float | None = None,
+        camera_id: str = "cam_01",
     ) -> bool:
         """
         Check if event passes deduplication / cooldown checks.
@@ -118,8 +123,15 @@ class EventEngine:
         if timestamp is None:
             timestamp = time.time()
 
+<<<<<<< HEAD
         key = (track_id, event_type, zone_name)
         cooldown = 60.0 if "face" in event_type else self.cooldown_seconds
+=======
+        key = (camera_id, track_id, event_type, zone_name)
+        # A recognised identity is a single observation per camera session,
+        # rather than a new event for every frame in which a face is detected.
+        cooldown = 300.0 if "face" in event_type else self.cooldown_seconds
+>>>>>>> 31c5f44e9caa22f979b450929276656e6146cd3b
         if key in self._last_event:
             elapsed = timestamp - self._last_event[key]
             if elapsed < cooldown:
@@ -195,7 +207,7 @@ class EventEngine:
         now_dt = datetime.now(timezone.utc)
         ts_sec = timestamp_sec if timestamp_sec is not None else now_dt.timestamp()
 
-        if not self.should_process(track_id, event_type, zone_name, ts_sec):
+        if not self.should_process(track_id, event_type, zone_name, ts_sec, camera_id):
             return None
 
         is_known = (
@@ -214,11 +226,22 @@ class EventEngine:
             label += f": {face_name}"
         if plate_text:
             label += f": {plate_text}"
+        if metadata and metadata.get("entry_time"):
+            label += f" | Entry {metadata['entry_time']}"
 
         bbox_list = list(bbox) if bbox is not None else None
         snapshot_path = self.save_snapshot(
             frame, event_type, now_dt, bbox=bbox_list, label=label
         )
+
+        # Compute SHA-256 of the evidence snapshot for integrity
+        evidence_hash = None
+        if snapshot_path:
+            try:
+                from src.security.integrity import hash_evidence
+                evidence_hash = hash_evidence(snapshot_path)
+            except Exception as e:
+                print(f"[EVENT] Failed to hash evidence: {e}")
 
         return Event(
             timestamp=now_dt.isoformat(),
@@ -234,6 +257,8 @@ class EventEngine:
             bbox=bbox_list,
             snapshot=snapshot_path,
             metadata=metadata,
+            evidence_sha256=evidence_hash,
+            integrity_status="VERIFIED" if evidence_hash else "PENDING",
         )
 
     def reset(self) -> None:

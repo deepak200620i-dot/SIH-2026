@@ -1,0 +1,55 @@
+{
+  "model": {
+    "name": "weapon-yolo26x",
+    "source": "HaiderKhan6410/weapon-yolo26x",
+    "classes": {
+      "0": "Blunt_Weapon",
+      "1": "Explosive",
+      "2": "Fire_Smoke",
+      "3": "Firearm",
+      "4": "Melee_Weapon",
+      "5": "Person",
+      "6": "Tool"
+    },
+    "size_mb": 112.9
+  },
+  "metrics": {
+    "accuracy": 0.6667,
+    "precision": 0.0,
+    "recall": 0.0,
+    "f1": 0.0,
+    "tp": 0,
+    "fp": 0,
+    "fn": 1,
+    "tn": 2
+  },
+  "per_image": [
+    {
+      "name": "ak47",
+      "ground_truth": "firearm",
+      "is_weapon_gt": true,
+      "detected_weapon": false,
+      "weapon_detections": [],
+      "all_raw_detections": [],
+      "inference_ms": 2744.2
+    },
+    {
+      "name": "ctrl_banana",
+      "ground_truth": "none",
+      "is_weapon_gt": false,
+      "detected_weapon": false,
+      "weapon_detections": [],
+      "all_raw_detections": [],
+      "inference_ms": 817.1
+    },
+    {
+      "name": "ctrl_guitar",
+      "ground_truth": "none",
+      "is_weapon_gt": false,
+      "detected_weapon": false,
+      "weapon_detections": [],
+      "all_raw_detections": [],
+      "inference_ms": 640.1
+    }
+  ]
+}

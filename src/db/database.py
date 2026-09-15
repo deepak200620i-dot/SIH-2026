@@ -1,19 +1,26 @@
 """
-IBVAP — Database Connection & Schema Management
-===============================================
-Async SQLite database connection management using aiosqlite.
-Initializes database tables (events, cameras, known_faces).
+IBVAP — Database Interface
+===========================
+Compatibility shim: all public APIs now delegate to ``pg_database``
+(asyncpg / PostgreSQL).  The old aiosqlite layer has been replaced.
 """
 
 from __future__ import annotations
 
-import os
-from pathlib import Path
-from typing import AsyncGenerator, Optional
+# Re-export everything from the new PostgreSQL module
+from src.db.pg_database import (
+    close_db,
+    get_db,
+    get_db_pool,
+    init_db,
+    seed_admin_user,
+    seed_default_cameras,
+)
 
-import aiosqlite
-import yaml
+# Backward compatibility alias for legacy tests
+get_db_connection = get_db
 
+<<<<<<< HEAD
 DEFAULT_DB_PATH = "data/ibvap.db"
 
 
@@ -121,3 +128,14 @@ async def get_db(db_path: Optional[str] = None) -> AsyncGenerator[aiosqlite.Conn
         yield db
     finally:
         await db.close()
+=======
+__all__ = [
+    "init_db",
+    "get_db",
+    "get_db_connection",
+    "get_db_pool",
+    "close_db",
+    "seed_admin_user",
+    "seed_default_cameras",
+]
+>>>>>>> 31c5f44e9caa22f979b450929276656e6146cd3b

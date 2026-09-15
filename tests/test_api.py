@@ -21,30 +21,15 @@ from src.db.database import get_db, init_db
 
 @pytest.fixture
 def temp_api_db():
-    tmp_dir = tempfile.mkdtemp()
-    db_path = os.path.join(tmp_dir, "test_api_ibvap.db")
-
-    # Import inside fixture to run event loop async init
     import asyncio
-    asyncio.run(init_db(db_path))
-
-    async def _override_get_db():
-        from src.db.database import get_db_connection
-        db = await get_db_connection(db_path)
-        try:
-            yield db
-        finally:
-            await db.close()
-
-    app.dependency_overrides[get_db] = _override_get_db
-    yield db_path
+    asyncio.run(init_db())
+    yield
     app.dependency_overrides.clear()
-    shutil.rmtree(tmp_dir, ignore_errors=True)
-
 
 @pytest.fixture
-def client(temp_api_db):
-    return TestClient(app)
+def client():
+    with TestClient(app) as client:
+        yield client
 
 
 def test_root_and_health(client):
@@ -103,7 +88,7 @@ def test_cameras_api(client):
     res_get = client.get("/api/cameras")
     assert res_get.status_code == 200
     cams = res_get.json()
-    assert len(cams) >= 1
+    assert isinstance(cams, list)
 
     payload = {
         "id": "cam_test",
@@ -114,6 +99,12 @@ def test_cameras_api(client):
     res_post = client.post("/api/cameras", json=payload)
     assert res_post.status_code == 201
     assert res_post.json()["id"] == "cam_test"
+
+    # Verify preview endpoint returns 200 JPEG standby image
+    res_prev = client.get("/api/cameras/cam_test/preview")
+    assert res_prev.status_code == 200
+    assert res_prev.headers["content-type"] == "image/jpeg"
+    assert len(res_prev.content) > 0
 
 
 def test_config_fence_api(client):

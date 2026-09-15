@@ -9,22 +9,36 @@ Handles:
 from __future__ import annotations
 
 import base64
+<<<<<<< HEAD
+=======
+import gc
+>>>>>>> 31c5f44e9caa22f979b450929276656e6146cd3b
 import os
 import shutil
 import tempfile
 import time
 from typing import Any, Optional
 
+<<<<<<< HEAD
 import aiosqlite
+=======
+>>>>>>> 31c5f44e9caa22f979b450929276656e6146cd3b
 import cv2
 import numpy as np
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from pydantic import BaseModel
 
 from src.api.routes.events import ws_manager
+<<<<<<< HEAD
 from src.db.crud import create_event
 from src.db.database import get_db
 from src.pipeline.video_pipeline import VideoPipeline
+=======
+from src.db.crud import create_event, update_event_metadata
+from src.db.database import get_db, get_db_pool
+from src.pipeline.video_pipeline import VideoPipeline
+from src.security.blockchain.background import enqueue_ledger_registration
+>>>>>>> 31c5f44e9caa22f979b450929276656e6146cd3b
 
 router = APIRouter(prefix="/api/video", tags=["video"])
 
@@ -32,6 +46,24 @@ router = APIRouter(prefix="/api/video", tags=["video"])
 _pipeline: Optional[VideoPipeline] = None
 
 
+<<<<<<< HEAD
+=======
+def _resize_for_processing(frame: np.ndarray, max_dimension: int) -> np.ndarray:
+    """Downscale oversized frames while preserving their aspect ratio."""
+    height, width = frame.shape[:2]
+    largest_dimension = max(width, height)
+    if max_dimension <= 0 or largest_dimension <= max_dimension:
+        return frame
+
+    scale = max_dimension / largest_dimension
+    return cv2.resize(
+        frame,
+        (max(1, round(width * scale)), max(1, round(height * scale))),
+        interpolation=cv2.INTER_AREA,
+    )
+
+
+>>>>>>> 31c5f44e9caa22f979b450929276656e6146cd3b
 def get_pipeline() -> VideoPipeline:
     global _pipeline
     if _pipeline is None:
@@ -67,7 +99,11 @@ class FrameProcessResponse(BaseModel):
 @router.post("/process-frame", response_model=FrameProcessResponse)
 async def process_webcam_frame(
     payload: FrameProcessRequest,
+<<<<<<< HEAD
     db: aiosqlite.Connection = Depends(get_db),
+=======
+    db=Depends(get_db),
+>>>>>>> 31c5f44e9caa22f979b450929276656e6146cd3b
 ) -> FrameProcessResponse:
     """
     Process a single base64 image frame from the browser webcam
@@ -101,6 +137,7 @@ async def process_webcam_frame(
     # Persist and broadcast any generated events
     for evt in res.generated_events:
         try:
+<<<<<<< HEAD
             saved = await create_event(db, evt)
             evt_dict = saved.to_dict()
             events_data.append(evt_dict)
@@ -108,6 +145,49 @@ async def process_webcam_frame(
         except Exception as err:
             print(f"Error persisting frame event: {err}")
 
+=======
+            saved = await create_event(
+                db,
+                timestamp=evt.timestamp,
+                event_type=evt.event_type,
+                severity=evt.severity,
+                camera_id=evt.camera_id,
+                track_id=evt.track_id,
+                class_name=evt.class_name,
+                zone_name=evt.zone_name,
+                face_name=evt.face_name,
+                plate_text=evt.plate_text,
+                confidence=evt.confidence,
+                bbox=evt.bbox,
+                snapshot=evt.snapshot,
+                metadata=evt.metadata,
+                status=evt.status,
+                evidence_sha256=evt.evidence_sha256,
+                integrity_status=evt.integrity_status,
+            )
+            evt_dict = dict(saved)
+            events_data.append(evt_dict)
+            if evt.metadata and evt.metadata.get("session_key"):
+                pipeline.register_session_event(evt.metadata["session_key"], saved["id"])
+            await ws_manager.broadcast(evt_dict)
+
+            # Background ledger registration
+            enqueue_ledger_registration(
+                pool=get_db_pool(),
+                event_id=saved["id"],
+                camera_id=evt.camera_id,
+                event_type=evt.event_type,
+                severity=evt.severity,
+                timestamp=evt.timestamp,
+                evidence_sha256=evt.evidence_sha256,
+            )
+        except Exception as err:
+            print(f"Error persisting frame event: {err}")
+
+    for update in res.completed_intrusions:
+        await update_event_metadata(db, update.pop("event_id"), update)
+
+>>>>>>> 31c5f44e9caa22f979b450929276656e6146cd3b
     # Build lookups for face and plate recognitions
     face_by_track = {
         fm.person_track_id: fm for fm in res.face_matches if fm.person_track_id is not None
@@ -155,13 +235,33 @@ def warmup_pipeline() -> None:
         print(f"Pipeline warmup notice: {e}")
 
 
+<<<<<<< HEAD
+=======
+class StopCameraRequest(BaseModel):
+    camera_id: str = "device_webcam"
+
+
+@router.post("/stop-camera")
+async def stop_camera(payload: StopCameraRequest, db=Depends(get_db)) -> dict[str, Any]:
+    """Close active dwell sessions and persist their final durations."""
+    updates = get_pipeline().close_camera_sessions(payload.camera_id)
+    for update in updates:
+        await update_event_metadata(db, update.pop("event_id"), update)
+    return {"status": "stopped", "updated_sessions": len(updates)}
+
+
+>>>>>>> 31c5f44e9caa22f979b450929276656e6146cd3b
 @router.post("/upload")
 async def upload_and_process_video(
     file: UploadFile = File(...),
     camera_id: str = Form("upload_cam_01"),
     frame_skip: int = Form(5),
     max_frames: int = Form(150),
+<<<<<<< HEAD
     db: aiosqlite.Connection = Depends(get_db),
+=======
+    db=Depends(get_db),
+>>>>>>> 31c5f44e9caa22f979b450929276656e6146cd3b
 ) -> dict[str, Any]:
     """
     Upload a recorded video (.mp4, .avi, .mov), process it frame-by-frame
@@ -188,6 +288,11 @@ async def upload_and_process_video(
 
         total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
         video_fps = cap.get(cv2.CAP_PROP_FPS) or 30.0
+<<<<<<< HEAD
+=======
+        processing_cfg = pipeline.config.get("video", {})
+        max_processing_dimension = int(processing_cfg.get("max_processing_dimension", 960))
+>>>>>>> 31c5f44e9caa22f979b450929276656e6146cd3b
 
         frame_idx = 0
         processed_count = 0
@@ -203,10 +308,18 @@ async def upload_and_process_video(
 
             frame_idx += 1
             if frame_skip > 1 and (frame_idx % frame_skip != 0):
+<<<<<<< HEAD
+=======
+                del frame
+>>>>>>> 31c5f44e9caa22f979b450929276656e6146cd3b
                 continue
 
             processed_count += 1
             current_time = start_proc + (frame_idx / video_fps)
+<<<<<<< HEAD
+=======
+            frame = _resize_for_processing(frame, max_processing_dimension)
+>>>>>>> 31c5f44e9caa22f979b450929276656e6146cd3b
 
             # Process frame
             res = pipeline.process_frame(
@@ -220,6 +333,7 @@ async def upload_and_process_video(
             for evt in res.generated_events:
                 total_events_generated += 1
                 try:
+<<<<<<< HEAD
                     saved = await create_event(db, evt)
                     evt_dict = saved.to_dict()
                     generated_events_list.append(evt_dict)
@@ -227,6 +341,55 @@ async def upload_and_process_video(
                 except Exception as e:
                     print(f"Error persisting uploaded video event: {e}")
 
+=======
+                    saved = await create_event(
+                        db,
+                        timestamp=evt.timestamp,
+                        event_type=evt.event_type,
+                        severity=evt.severity,
+                        camera_id=evt.camera_id,
+                        track_id=evt.track_id,
+                        class_name=evt.class_name,
+                        zone_name=evt.zone_name,
+                        face_name=evt.face_name,
+                        plate_text=evt.plate_text,
+                        confidence=evt.confidence,
+                        bbox=evt.bbox,
+                        snapshot=evt.snapshot,
+                        metadata=evt.metadata,
+                        status=evt.status,
+                        evidence_sha256=evt.evidence_sha256,
+                        integrity_status=evt.integrity_status,
+                    )
+                    evt_dict = dict(saved)
+                    generated_events_list.append(evt_dict)
+                    if evt.metadata and evt.metadata.get("session_key"):
+                        pipeline.register_session_event(evt.metadata["session_key"], saved["id"])
+                    await ws_manager.broadcast(evt_dict)
+
+                    enqueue_ledger_registration(
+                        pool=get_db_pool(),
+                        event_id=saved["id"],
+                        camera_id=evt.camera_id,
+                        event_type=evt.event_type,
+                        severity=evt.severity,
+                        timestamp=evt.timestamp,
+                        evidence_sha256=evt.evidence_sha256,
+                    )
+                except Exception as e:
+                    print(f"Error persisting uploaded video event: {e}")
+
+            for update in res.completed_intrusions:
+                await update_event_metadata(db, update.pop("event_id"), update)
+
+            # Pipeline results include an annotated image. Release it before the
+            # next high-resolution source frame is decoded.
+            del res
+            del frame
+            if processed_count % 25 == 0:
+                gc.collect()
+
+>>>>>>> 31c5f44e9caa22f979b450929276656e6146cd3b
         cap.release()
         elapsed_time = time.time() - start_proc
 

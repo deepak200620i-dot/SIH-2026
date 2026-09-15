@@ -10,7 +10,10 @@ interface AlertsPanelProps {
 }
 
 export const AlertsPanel: React.FC<AlertsPanelProps> = ({ alerts, maxItems = 5 }) => {
-  const displayAlerts = alerts.slice(0, maxItems);
+  const severityRank: Record<string, number> = { CRITICAL: 4, HIGH: 3, MEDIUM: 2, LOW: 1 };
+  const displayAlerts = [...alerts]
+    .sort((a, b) => (severityRank[b.severity] - severityRank[a.severity]) || (new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()))
+    .slice(0, maxItems);
 
   return (
     <div className="border border-gray-700 rounded p-4 bg-gray-900/50">

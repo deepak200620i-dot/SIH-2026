@@ -17,6 +17,7 @@ import { useAlerts } from "@/hooks/useAlerts";
 
 
 import { Zones } from "@/pages/Zones";
+<<<<<<< HEAD
 
 export const App: React.FC = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(
@@ -26,6 +27,55 @@ export const App: React.FC = () => {
 
   if (!isAuthenticated) {
     return <Login onLogin={() => { sessionStorage.setItem("ibvap-authenticated", "true"); setIsAuthenticated(true); }} />;
+=======
+import { Intrusions } from "@/pages/Intrusions";
+
+export const App: React.FC = () => {
+  const [isAuthenticated, setIsAuthenticated] = useState(
+    () => !!sessionStorage.getItem("ibvap-token")
+  );
+  const [userRole, setUserRole] = useState<string>(
+    () => sessionStorage.getItem("ibvap-role") || "operator"
+  );
+  const [username, setUsername] = useState<string>(
+    () => sessionStorage.getItem("ibvap-username") || ""
+  );
+  const { alerts } = useAlerts();
+
+  const handleLogin = (token: string, role: string, user: string) => {
+    sessionStorage.setItem("ibvap-token", token);
+    sessionStorage.setItem("ibvap-role", role);
+    sessionStorage.setItem("ibvap-username", user);
+    sessionStorage.setItem("ibvap-authenticated", "true");
+    setIsAuthenticated(true);
+    setUserRole(role);
+    setUsername(user);
+  };
+
+  const handleLogout = () => {
+    sessionStorage.removeItem("ibvap-token");
+    sessionStorage.removeItem("ibvap-role");
+    sessionStorage.removeItem("ibvap-username");
+    sessionStorage.removeItem("ibvap-authenticated");
+    setIsAuthenticated(false);
+    setUserRole("operator");
+    setUsername("");
+  };
+
+  // Listen for 401 responses globally to auto-logout
+  useEffect(() => {
+    const handler = (e: Event) => {
+      if ((e as CustomEvent)?.detail?.status === 401) {
+        handleLogout();
+      }
+    };
+    window.addEventListener("ibvap-auth-error", handler);
+    return () => window.removeEventListener("ibvap-auth-error", handler);
+  }, []);
+
+  if (!isAuthenticated) {
+    return <Login onLogin={handleLogin} />;
+>>>>>>> 31c5f44e9caa22f979b450929276656e6146cd3b
   }
 
   return (
@@ -43,6 +93,7 @@ export const App: React.FC = () => {
           <Route path="/persons" element={<Persons />} />
           <Route path="/anpr" element={<ANPR />} />
           <Route path="/zones" element={<Zones />} />
+          <Route path="/intrusions" element={<Intrusions />} />
           <Route path="/analytics" element={<Analytics />} />
           <Route path="/settings" element={<Settings />} />
           <Route path="*" element={<Navigate to="/dashboard" />} />

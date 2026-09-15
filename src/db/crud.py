@@ -1,42 +1,61 @@
 """
-IBVAP — Database CRUD Operations
-===============================
-Async helper functions for creating and querying events, cameras, and known faces.
+IBVAP — CRUD Operations (PostgreSQL / asyncpg)
+================================================
+All SQL queries use PostgreSQL ``$1`` parameter placeholders.
+Returns plain ``dict`` objects from ``asyncpg.Record``.
 """
 
 from __future__ import annotations
 
 import json
+<<<<<<< HEAD
 import os
+=======
+from datetime import datetime, timezone
+>>>>>>> 31c5f44e9caa22f979b450929276656e6146cd3b
 from typing import Any, Optional
 
-import aiosqlite
 
+<<<<<<< HEAD
 from src.rules.event_engine import Event
 
 
 
 def _row_to_dict(row: aiosqlite.Row) -> dict[str, Any]:
     """Convert sqlite row to dictionary and parse JSON fields."""
+=======
+# ───────────────────────── helpers ──────────────────────────────────────
+def _rec(row) -> dict[str, Any]:
+    """Convert an asyncpg.Record to a plain dict."""
+    if row is None:
+        return {}
+>>>>>>> 31c5f44e9caa22f979b450929276656e6146cd3b
     d = dict(row)
-    if "bbox" in d and d["bbox"]:
+    # Stringify datetimes for JSON compatibility
+    for k, v in d.items():
+        if isinstance(v, datetime):
+            d[k] = v.isoformat()
+    # Deserialize JSON strings for Pydantic schema compatibility
+    if isinstance(d.get("bbox"), str):
         try:
             d["bbox"] = json.loads(d["bbox"])
         except Exception:
             pass
-    if "metadata" in d and d["metadata"]:
+    if isinstance(d.get("metadata"), str):
         try:
             d["metadata"] = json.loads(d["metadata"])
+        except Exception:
+            pass
+    if isinstance(d.get("polygon"), str):
+        try:
+            d["polygon"] = json.loads(d["polygon"])
         except Exception:
             pass
     return d
 
 
-async def create_event(db: aiosqlite.Connection, event: Event) -> Event:
-    """Insert a new event into SQLite database."""
-    bbox_json = json.dumps(event.bbox) if event.bbox is not None else None
-    meta_json = json.dumps(event.metadata) if event.metadata is not None else None
 
+<<<<<<< HEAD
     query = """
         INSERT INTO events (
             timestamp, event_type, severity, camera_id, track_id,
@@ -55,32 +74,76 @@ async def create_event(db: aiosqlite.Connection, event: Event) -> Event:
         event.face_name,
         event.plate_text,
         event.confidence,
+=======
+# ───────────────────────── EVENTS ──────────────────────────────────────
+async def create_event(
+    conn,
+    *,
+    timestamp: str,
+    event_type: str,
+    severity: str,
+    camera_id: str = "cam_01",
+    track_id: Optional[int] = None,
+    class_name: Optional[str] = None,
+    zone_name: Optional[str] = None,
+    face_name: Optional[str] = None,
+    plate_text: Optional[str] = None,
+    confidence: Optional[float] = None,
+    bbox: Optional[Any] = None,
+    snapshot: Optional[str] = None,
+    metadata: Optional[dict] = None,
+    status: str = "ACTIVE",
+    evidence_sha256: Optional[str] = None,
+    integrity_status: str = "PENDING",
+) -> dict[str, Any]:
+    """Insert a new event and return it with its generated ID."""
+    bbox_json = json.dumps(bbox) if bbox is not None else None
+    meta_json = json.dumps(metadata) if metadata is not None else None
+
+    # Ensure datetime object for PostgreSQL TIMESTAMPTZ
+    ts = timestamp
+    if isinstance(ts, str):
+        try:
+            ts = datetime.fromisoformat(ts)
+        except Exception:
+            ts = datetime.now(timezone.utc)
+    elif ts is None:
+        ts = datetime.now(timezone.utc)
+
+    row = await conn.fetchrow(
+        """
+        INSERT INTO events
+            (timestamp, event_type, severity, camera_id, track_id,
+             class_name, zone_name, face_name, plate_text, confidence,
+             bbox, snapshot, metadata, status,
+             evidence_sha256, integrity_status)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10,
+                $11::jsonb, $12, $13::jsonb, $14, $15, $16)
+        RETURNING *
+        """,
+        ts,
+        event_type,
+        severity,
+        camera_id,
+        track_id,
+        class_name,
+        zone_name,
+        face_name,
+        plate_text,
+        confidence,
+>>>>>>> 31c5f44e9caa22f979b450929276656e6146cd3b
         bbox_json,
-        event.snapshot,
+        snapshot,
         meta_json,
+<<<<<<< HEAD
         event.status,
+=======
+        status,
+        evidence_sha256,
+        integrity_status,
+>>>>>>> 31c5f44e9caa22f979b450929276656e6146cd3b
     )
-
-    cursor = await db.execute(query, params)
-    await db.commit()
-    event.id = cursor.lastrowid
-
-    # Fetch created_at timestamp
-    cur = await db.execute("SELECT created_at FROM events WHERE id = ?", (event.id,))
-    row = await cur.fetchone()
-    if row:
-        event.created_at = row[0]
-
-    return event
-
-
-async def get_event_by_id(db: aiosqlite.Connection, event_id: int) -> dict[str, Any] | None:
-    """Fetch single event by ID."""
-    cur = await db.execute("SELECT * FROM events WHERE id = ?", (event_id,))
-    row = await cur.fetchone()
-    if not row:
-        return None
-    return _row_to_dict(row)
+    return _rec(row)
 
 
 async def update_event_status(
@@ -93,91 +156,48 @@ async def update_event_status(
 
 
 async def get_events(
-    db: aiosqlite.Connection,
-    limit: int = 50,
+    conn,
+    *,
+    limit: int = 20,
     offset: int = 0,
     event_type: Optional[str] = None,
     severity: Optional[str] = None,
     camera_id: Optional[str] = None,
-) -> tuple[list[dict[str, Any]], int]:
-    """Fetch paginated, filterable events list and total matching count."""
+) -> dict[str, Any]:
+    """Fetch paginated events with optional filters. Returns {items, total}."""
     conditions: list[str] = []
     params: list[Any] = []
+    idx = 1
 
     if event_type:
-        conditions.append("event_type = ?")
+        conditions.append(f"event_type = ${idx}")
         params.append(event_type)
+        idx += 1
     if severity:
-        conditions.append("severity = ?")
+        conditions.append(f"severity = ${idx}")
         params.append(severity)
+        idx += 1
     if camera_id:
-        conditions.append("camera_id = ?")
+        conditions.append(f"camera_id = ${idx}")
         params.append(camera_id)
+        idx += 1
 
-    where_clause = f"WHERE {' AND '.join(conditions)}" if conditions else ""
+    where = ("WHERE " + " AND ".join(conditions)) if conditions else ""
 
-    # Count total
-    count_query = f"SELECT COUNT(*) FROM events {where_clause}"
-    cur_count = await db.execute(count_query, params)
-    total = (await cur_count.fetchone())[0]
+    # Total count
+    count_q = f"SELECT COUNT(*) FROM events {where}"
+    total = await conn.fetchval(count_q, *params)
 
-    # Select page items
-    select_query = f"SELECT * FROM events {where_clause} ORDER BY id DESC LIMIT ? OFFSET ?"
-    cur_select = await db.execute(select_query, params + [limit, offset])
-    rows = await cur_select.fetchall()
-
-    items = [_row_to_dict(row) for row in rows]
-    return items, total
-
-
-async def get_stats(db: aiosqlite.Connection) -> dict[str, Any]:
-    """Get summary statistics for total events, breakdown by type, and breakdown by severity."""
-    cur_total = await db.execute("SELECT COUNT(*) FROM events")
-    total_events = (await cur_total.fetchone())[0]
-
-    cur_type = await db.execute("SELECT event_type, COUNT(*) FROM events GROUP BY event_type")
-    by_type = {row[0]: row[1] for row in await cur_type.fetchall()}
-
-    cur_sev = await db.execute("SELECT severity, COUNT(*) FROM events GROUP BY severity")
-    by_severity = {row[0]: row[1] for row in await cur_sev.fetchall()}
-
-    cur_cams = await db.execute("SELECT COUNT(*) FROM cameras WHERE status = 'active'")
-    active_cameras = (await cur_cams.fetchone())[0]
-
-    return {
-        "total_events": total_events,
-        "active_cameras": active_cameras,
-        "by_type": by_type,
-        "by_severity": by_severity,
-    }
-
-
-async def get_cameras(db: aiosqlite.Connection) -> list[dict[str, Any]]:
-    """List all configured cameras."""
-    cur = await db.execute("SELECT * FROM cameras ORDER BY id ASC")
-    rows = await cur.fetchall()
-    return [dict(row) for row in rows]
-
-
-async def add_camera(
-    db: aiosqlite.Connection,
-    camera_id: str,
-    name: str,
-    source: str,
-    status: str = "active",
-) -> dict[str, Any]:
-    """Add or update a camera configuration."""
-    query = """
-        INSERT INTO cameras (id, name, source, status)
-        VALUES (?, ?, ?, ?)
-        ON CONFLICT(id) DO UPDATE SET
-            name=excluded.name,
-            source=excluded.source,
-            status=excluded.status
+    # Items
+    items_q = f"""
+        SELECT * FROM events {where}
+        ORDER BY timestamp DESC
+        LIMIT ${idx} OFFSET ${idx + 1}
     """
-    await db.execute(query, (camera_id, name, source, status))
-    await db.commit()
+    params.extend([limit, offset])
+    rows = await conn.fetch(items_q, *params)
 
+<<<<<<< HEAD
     cur = await db.execute("SELECT * FROM cameras WHERE id = ?", (camera_id,))
     row = await cur.fetchone()
     return dict(row)
@@ -221,11 +241,152 @@ async def add_known_face(
     if d.get("image_path"):
         relative_path = os.path.relpath(d["image_path"], "data/faces").replace("\\", "/")
         d["image_url"] = f"/api/faces/images/{relative_path}"
+=======
+    return {"items": [_rec(r) for r in rows], "total": total}
+
+
+async def get_event(conn, event_id: int) -> Optional[dict[str, Any]]:
+    """Fetch a single event by ID."""
+    row = await conn.fetchrow("SELECT * FROM events WHERE id = $1", event_id)
+    return _rec(row) if row else None
+
+
+async def update_event_status(conn, event_id: int, status: str) -> bool:
+    """Update the status of an event. Returns True if updated."""
+    result = await conn.execute(
+        "UPDATE events SET status = $1 WHERE id = $2", status, event_id
+    )
+    return result.endswith("1")
+
+
+async def get_event_stats(conn) -> dict[str, Any]:
+    """Aggregate event statistics by type and severity."""
+    type_rows = await conn.fetch(
+        "SELECT event_type, COUNT(*) AS cnt FROM events GROUP BY event_type"
+    )
+    sev_rows = await conn.fetch(
+        "SELECT severity, COUNT(*) AS cnt FROM events GROUP BY severity"
+    )
+    by_type = {r["event_type"]: r["cnt"] for r in type_rows}
+    by_severity = {r["severity"]: r["cnt"] for r in sev_rows}
+    total = await conn.fetchval("SELECT COUNT(*) FROM events")
+    return {"total": total, "by_type": by_type, "by_severity": by_severity}
+
+
+async def update_event_integrity(
+    conn, event_id: int, integrity_status: str, evidence_sha256: Optional[str] = None
+) -> bool:
+    """Update integrity fields for an event."""
+    if evidence_sha256:
+        result = await conn.execute(
+            "UPDATE events SET integrity_status = $1, evidence_sha256 = $2 WHERE id = $3",
+            integrity_status,
+            evidence_sha256,
+            event_id,
+        )
+    else:
+        result = await conn.execute(
+            "UPDATE events SET integrity_status = $1 WHERE id = $2",
+            integrity_status,
+            event_id,
+        )
+    return result.endswith("1")
+
+
+async def update_event_ledger(
+    conn, event_id: int, provider: str, record_id: str, status: str
+) -> bool:
+    """Update ledger registration fields for an event."""
+    result = await conn.execute(
+        """
+        UPDATE events
+        SET ledger_provider = $1, ledger_record_id = $2, ledger_status = $3
+        WHERE id = $4
+        """,
+        provider,
+        record_id,
+        status,
+        event_id,
+    )
+    return result.endswith("1")
+
+
+# ───────────────────────── CAMERAS ─────────────────────────────────────
+async def get_cameras(conn) -> list[dict[str, Any]]:
+    rows = await conn.fetch("SELECT * FROM cameras ORDER BY id")
+    return [_rec(r) for r in rows]
+
+
+async def create_camera(
+    conn, *, id: str, name: str, source: str, status: str = "active"
+) -> dict[str, Any]:
+    row = await conn.fetchrow(
+        """
+        INSERT INTO cameras (id, name, source, status)
+        VALUES ($1, $2, $3, $4)
+        ON CONFLICT (id) DO UPDATE SET name = $2, source = $3, status = $4
+        RETURNING *
+        """,
+        id,
+        name,
+        source,
+        status,
+    )
+    return _rec(row)
+
+
+async def delete_camera(conn, camera_id: str) -> bool:
+    result = await conn.execute("DELETE FROM cameras WHERE id = $1", camera_id)
+    return result.endswith("1")
+
+
+# ───────────────────────── KNOWN FACES ─────────────────────────────────
+async def get_known_faces(conn) -> list[dict[str, Any]]:
+    rows = await conn.fetch("SELECT id, name, image_path, created_at FROM known_faces ORDER BY id")
+    result = []
+    for r in rows:
+        d = _rec(r)
+        if d.get("image_path"):
+            norm = d["image_path"].replace("\\", "/").strip("/")
+            for pfx in ("data/faces/", "data/evidence/", "data/"):
+                if norm.startswith(pfx):
+                    norm = norm[len(pfx):]
+                    break
+            d["image_url"] = f"/api/evidence/{norm}"
+        else:
+            d["image_url"] = None
+        result.append(d)
+    return result
+
+
+async def add_known_face(
+    conn, *, name: str, image_path: str, embedding: Optional[bytes] = None
+) -> dict[str, Any]:
+    row = await conn.fetchrow(
+        """
+        INSERT INTO known_faces (name, image_path, embedding)
+        VALUES ($1, $2, $3)
+        RETURNING *
+        """,
+        name,
+        image_path,
+        embedding,
+    )
+    d = _rec(row)
+    if d.get("image_path"):
+        norm = d["image_path"].replace("\\", "/").strip("/")
+        for pfx in ("data/faces/", "data/evidence/", "data/"):
+            if norm.startswith(pfx):
+                norm = norm[len(pfx):]
+                break
+        d["image_url"] = f"/api/evidence/{norm}"
+>>>>>>> 31c5f44e9caa22f979b450929276656e6146cd3b
     else:
         d["image_url"] = None
     return d
 
 
+<<<<<<< HEAD
 async def delete_known_face(db: aiosqlite.Connection, face_id: int) -> bool:
     """Delete a known face record by ID."""
     cur = await db.execute("SELECT image_path FROM known_faces WHERE id = ?", (face_id,))
@@ -254,15 +415,51 @@ async def get_fence_zones(
     for row in rows:
         d = dict(row)
         if "polygon" in d and isinstance(d["polygon"], str):
+=======
+async def delete_known_face(conn, face_id: int) -> bool:
+    result = await conn.execute("DELETE FROM known_faces WHERE id = $1", face_id)
+    return result.endswith("1")
+
+
+# ───────────────────────── FENCE ZONES ─────────────────────────────────
+async def get_fence_zones(
+    conn, camera_id: Optional[str] = None
+) -> list[dict[str, Any]]:
+    if camera_id:
+        rows = await conn.fetch(
+            """
+            SELECT * FROM fence_zones
+            WHERE camera_id = $1 OR camera_id = 'all'
+            ORDER BY id
+            """,
+            camera_id,
+        )
+    else:
+        rows = await conn.fetch("SELECT * FROM fence_zones ORDER BY id")
+
+    results = []
+    for r in rows:
+        d = _rec(r)
+        # polygon is already JSONB → Python list
+        if d.get("polygon") and isinstance(d["polygon"], str):
+>>>>>>> 31c5f44e9caa22f979b450929276656e6146cd3b
             try:
                 d["polygon"] = json.loads(d["polygon"])
             except Exception:
                 pass
+<<<<<<< HEAD
+=======
+        if not d.get("camera_id"):
+            d["camera_id"] = "all"
+        if "updated_at" in d:
+            d["created_at"] = d.pop("updated_at", None)
+>>>>>>> 31c5f44e9caa22f979b450929276656e6146cd3b
         results.append(d)
     return results
 
 
 async def create_fence_zone(
+<<<<<<< HEAD
     db: aiosqlite.Connection,
     name: str,
     polygon: list[list[int]],
@@ -286,10 +483,37 @@ async def create_fence_zone(
     row = await cur.fetchone()
     d = dict(row)
     if "polygon" in d and isinstance(d["polygon"], str):
+=======
+    conn,
+    *,
+    name: str,
+    polygon: list,
+    severity: str = "high",
+    camera_id: str = "all",
+) -> dict[str, Any]:
+    polygon_json = json.dumps(polygon)
+    row = await conn.fetchrow(
+        """
+        INSERT INTO fence_zones (name, camera_id, polygon, severity)
+        VALUES ($1, $2, $3::jsonb, $4)
+        ON CONFLICT (name) DO UPDATE
+            SET polygon = $3::jsonb, severity = $4, camera_id = $2,
+                updated_at = NOW()
+        RETURNING *
+        """,
+        name,
+        camera_id,
+        polygon_json,
+        severity,
+    )
+    d = _rec(row)
+    if d.get("polygon") and isinstance(d["polygon"], str):
+>>>>>>> 31c5f44e9caa22f979b450929276656e6146cd3b
         try:
             d["polygon"] = json.loads(d["polygon"])
         except Exception:
             pass
+<<<<<<< HEAD
     return d
 
 
@@ -302,3 +526,72 @@ async def delete_fence_zone(db: aiosqlite.Connection, zone_id: int) -> bool:
     await db.execute("DELETE FROM fence_zones WHERE id = ?", (zone_id,))
     await db.commit()
     return True
+=======
+    if "updated_at" in d:
+        d["created_at"] = d.pop("updated_at", None)
+    return d
+
+
+async def delete_fence_zone(conn, zone_id: int) -> bool:
+    result = await conn.execute("DELETE FROM fence_zones WHERE id = $1", zone_id)
+    return result.endswith("1")
+
+
+# ───────────────────────── USERS ───────────────────────────────────────
+async def get_user_by_username(conn, username: str) -> Optional[dict[str, Any]]:
+    row = await conn.fetchrow("SELECT * FROM users WHERE username = $1", username)
+    return _rec(row) if row else None
+
+
+async def create_user(
+    conn, *, username: str, password_hash: str, role: str = "operator"
+) -> dict[str, Any]:
+    row = await conn.fetchrow(
+        """
+        INSERT INTO users (username, password_hash, role)
+        VALUES ($1, $2, $3)
+        RETURNING *
+        """,
+        username,
+        password_hash,
+        role,
+    )
+    return _rec(row)
+
+
+async def get_users(conn) -> list[dict[str, Any]]:
+    rows = await conn.fetch(
+        "SELECT id, username, role, is_active, created_at FROM users ORDER BY id"
+    )
+    return [_rec(r) for r in rows]
+
+
+# ───────────────────────── ALIASES / COMPAT ────────────────────────────
+# Aliases to preserve old import names used by route files
+add_camera = create_camera
+get_event_by_id = get_event
+get_stats = get_event_stats
+
+
+async def update_event_metadata(conn, event_id: int, updates: dict[str, Any]) -> bool:
+    """Merge additional metadata fields into an existing event's metadata JSONB."""
+    if not updates or not event_id:
+        return False
+    row = await conn.fetchrow("SELECT metadata FROM events WHERE id = $1", event_id)
+    if row is None:
+        return False
+    existing = row["metadata"] or {}
+    if isinstance(existing, str):
+        try:
+            existing = json.loads(existing)
+        except Exception:
+            existing = {}
+    existing.update(updates)
+    meta_json = json.dumps(existing)
+    result = await conn.execute(
+        "UPDATE events SET metadata = $1::jsonb WHERE id = $2",
+        meta_json,
+        event_id,
+    )
+    return result.endswith("1")
+>>>>>>> 31c5f44e9caa22f979b450929276656e6146cd3b

@@ -9,16 +9,26 @@ export type EventType =
   | "ANPR_DETECTED"
   | "UNKNOWN_VEHICLE"
   | "LOITERING"
-  | "RESTRICTED_ZONE_ENTRY";
+  | "RESTRICTED_ZONE_ENTRY"
+  | "DIRECTION_VIOLATION"
+  | "CROWDING"
+  | "RAPID_MOVEMENT"
+  | "ABNORMAL_DWELL"
+  | "REPEATED_ZONE_ENTRY"
+  | "WEAPON_DETECTED";
 
 export type AlertStatus = "ACTIVE" | "ACKNOWLEDGED" | "INVESTIGATING" | "RESOLVED";
 export type CameraStatus = "ONLINE" | "OFFLINE" | "WARNING";
 export type FaceMatchStatus = "KNOWN" | "UNKNOWN" | "PARTIAL_MATCH";
+export type Role = "admin" | "operator" | "auditor";
+export type IntegrityStatus = "PENDING" | "VERIFIED" | "FAILED" | "NOT_AVAILABLE";
+export type LedgerStatus = "PENDING" | "REGISTERED" | "FAILED" | "NOT_APPLICABLE";
 
 // Camera
 export interface Camera {
   id: string;
   name: string;
+  source?: string;
   location: string;
   status: CameraStatus;
   fps: number;
@@ -85,6 +95,7 @@ export interface FaceEvent {
   matchedPersonId?: string;
   matchedPersonName?: string;
   confidence: number;
+  timeUnderCameraSeconds?: number;
 }
 
 // ANPR - Automatic Number Plate Recognition
@@ -114,6 +125,12 @@ export interface SecurityEvent {
   description: string;
   status: AlertStatus;
   detailedInfo?: Record<string, any>;
+  // Security fields
+  evidenceSha256?: string;
+  integrityStatus?: IntegrityStatus;
+  ledgerStatus?: LedgerStatus;
+  ledgerProvider?: string;
+  ledgerRecordId?: string;
 }
 
 // Alerts
@@ -180,4 +197,47 @@ export interface PaginatedResponse<T> {
   page: number;
   pageSize: number;
   hasMore: boolean;
+}
+
+// Auth & Security
+export interface User {
+  id: number;
+  username: string;
+  role: Role;
+  is_active: boolean;
+}
+
+export interface LoginResponse {
+  access_token: string;
+  token_type: string;
+  role: string;
+  username: string;
+}
+
+export interface AuditLogEntry {
+  id: number;
+  actor_username?: string;
+  action: string;
+  target_type?: string;
+  target_id?: string;
+  timestamp: string;
+  result?: string;
+  metadata_json?: Record<string, any>;
+  ip_address?: string;
+}
+
+export interface IntegrityCheckResponse {
+  event_id: number;
+  evidence_sha256?: string;
+  integrity_status: string;
+  snapshot_path?: string;
+}
+
+export interface LedgerRecord {
+  event_id: number;
+  provider?: string;
+  record_id?: string;
+  status: string;
+  registered_at?: string;
+  on_chain_data?: Record<string, any>;
 }

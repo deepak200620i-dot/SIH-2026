@@ -1,9 +1,14 @@
 """
 IBVAP — FastAPI Application Entry Point
 ======================================
+<<<<<<< HEAD
 Assembles REST & WebSocket routes, initializes SQLite database on startup,
 configures CORS middleware, serves static evidence & faces, and serves the
 React dashboard SPA for unified Render deployment.
+=======
+Assembles REST & WebSocket routes, initializes PostgreSQL database on startup,
+configures CORS middleware, and serves the React dashboard SPA for deployment.
+>>>>>>> 31c5f44e9caa22f979b450929276656e6146cd3b
 """
 
 from __future__ import annotations
@@ -12,7 +17,15 @@ import os
 from contextlib import asynccontextmanager
 from typing import AsyncGenerator
 
+<<<<<<< HEAD
 import aiosqlite
+=======
+from dotenv import load_dotenv
+
+# Load .env before any module reads os.getenv
+load_dotenv()
+
+>>>>>>> 31c5f44e9caa22f979b450929276656e6146cd3b
 from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
@@ -27,8 +40,16 @@ from src.api.routes import (
     video_router,
     zones_router,
 )
+<<<<<<< HEAD
 from src.db.crud import get_stats
 from src.db.database import get_db, init_db
+=======
+from src.api.routes.auth import router as auth_router
+from src.api.routes.security import router as security_router
+from src.api.routes.evidence import router as evidence_router
+from src.db.crud import get_event_stats
+from src.db.database import close_db, get_db, init_db, seed_admin_user
+>>>>>>> 31c5f44e9caa22f979b450929276656e6146cd3b
 
 
 @asynccontextmanager
@@ -38,15 +59,28 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     os.makedirs("data/evidence", exist_ok=True)
     os.makedirs("data/faces", exist_ok=True)
     os.makedirs("data/uploads", exist_ok=True)
+<<<<<<< HEAD
     os.makedirs("data", exist_ok=True)
 
     # Initialize database schema
     await init_db()
 
+=======
+    os.makedirs("data/ledger", exist_ok=True)
+    os.makedirs("data", exist_ok=True)
+
+    # Initialize PostgreSQL database schema
+    await init_db()
+
+    # Seed admin user
+    await seed_admin_user()
+
+>>>>>>> 31c5f44e9caa22f979b450929276656e6146cd3b
     # Load any saved fence zones into pipeline
     try:
         from src.api.routes.video import get_pipeline
         from src.db.crud import get_fence_zones
+<<<<<<< HEAD
         from src.db.database import get_db_connection
         db_conn = await get_db_connection()
         try:
@@ -55,6 +89,15 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
                 get_pipeline().update_zones(zones)
         finally:
             await db_conn.close()
+=======
+        from src.db.database import get_db_pool
+
+        pool = get_db_pool()
+        async with pool.acquire() as conn:
+            zones = await get_fence_zones(conn)
+            if zones:
+                get_pipeline().update_zones(zones)
+>>>>>>> 31c5f44e9caa22f979b450929276656e6146cd3b
     except Exception as e:
         print(f"Initial zones load notice: {e}")
 
@@ -65,24 +108,36 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 
     yield
 
+    # Shutdown: close database pool
+    await close_db()
+
 
 app = FastAPI(
     title="IBVAP — Intelligent Border Video Analytics Platform API",
     description="Backend REST API and WebSocket live stream for border security analytics.",
-    version="1.0.0",
+    version="2.0.0",
     lifespan=lifespan,
 )
 
-# CORS middleware for frontend React dashboard
+# CORS middleware — configurable origins from environment
+cors_origins_str = os.getenv("CORS_ORIGINS", "http://localhost:5173,http://localhost:3000")
+cors_origins = [o.strip() for o in cors_origins_str.split(",") if o.strip()]
+# In development, also allow wildcard if no origins configured
+if not cors_origins:
+    cors_origins = ["*"]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=cors_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
 # Include API routers
+app.include_router(auth_router)
+app.include_router(security_router)
+app.include_router(evidence_router)
 app.include_router(events_router)
 app.include_router(cameras_router)
 app.include_router(config_router)
@@ -90,16 +145,23 @@ app.include_router(faces_router)
 app.include_router(video_router)
 app.include_router(zones_router)
 
+<<<<<<< HEAD
 # Mount static files for evidence snapshots and face gallery images
 os.makedirs("data/evidence", exist_ok=True)
 os.makedirs("data/faces", exist_ok=True)
 app.mount("/api/evidence", StaticFiles(directory="data/evidence"), name="evidence")
+=======
+# Static files for face gallery images (evidence is now served via authenticated endpoint)
+os.makedirs("data/evidence", exist_ok=True)
+os.makedirs("data/faces", exist_ok=True)
+>>>>>>> 31c5f44e9caa22f979b450929276656e6146cd3b
 app.mount("/api/faces/images", StaticFiles(directory="data/faces"), name="face_images")
 
 
 @app.get("/health")
 async def health_check() -> dict[str, str]:
     """Health check endpoint."""
+<<<<<<< HEAD
     return {"status": "ok", "service": "IBVAP Backend API", "version": "1.0.0"}
 
 
@@ -110,6 +172,18 @@ async def fetch_stats_fallback(
     """Fallback route for system-wide stats."""
     stats = await get_stats(db)
     return StatsResponse(**stats)
+=======
+    return {"status": "ok", "service": "IBVAP Backend API", "version": "2.0.0"}
+
+
+@app.get("/api/stats")
+async def fetch_stats_fallback(
+    db=Depends(get_db),
+) -> dict:
+    """Fallback route for system-wide stats."""
+    stats = await get_event_stats(db)
+    return stats
+>>>>>>> 31c5f44e9caa22f979b450929276656e6146cd3b
 
 
 # SPA Static Frontend Support (Render & Production Deployment)
@@ -147,7 +221,13 @@ else:
         return {
             "status": "online",
             "service": "IBVAP Backend API",
+<<<<<<< HEAD
             "version": "1.0.0",
             "docs": "/docs",
         }
 
+=======
+            "version": "2.0.0",
+            "docs": "/docs",
+        }
+>>>>>>> 31c5f44e9caa22f979b450929276656e6146cd3b

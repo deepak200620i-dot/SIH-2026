@@ -14,6 +14,11 @@
 | Step 5 | ✅ **Complete** | React dashboard (Vite + Tailwind + WebSockets) |
 | Step 6 | ✅ **Complete** | ANPR + loitering + integration |
 | Step 7 | ✅ **Complete** | End-to-End unified wiring, Render deployment, Supabase schema |
+<<<<<<< HEAD
+=======
+| Step 8 | ✅ **Complete** | Blockchain + Cybersecurity + Supabase PostgreSQL + Behavior Analytics |
+
+>>>>>>> 31c5f44e9caa22f979b450929276656e6146cd3b
 
 
 ---
@@ -318,20 +323,57 @@ Full suite (107 tests total)   — 107 passed in 4.87s ✅
 
 ---
 
-## Future Steps
+## ✅ Step 8: Genuine Blockchain + Cybersecurity Layer + Supabase PostgreSQL + Behavior Analytics — COMPLETE
 
-### Step 5: React Dashboard (In Progress by Ridham)
-- Vite + React + Tailwind CSS
-- Live event feed, camera grid, alert detail, fence editor
+**Date completed:** 2026-09-13
 
-### Step 7: Testing, Performance, Polish
-- End-to-end integration test
-- FPS / latency benchmarks
-- Demo script for judges
-- README + documentation
+### What was built
+
+| Category | Files Added / Modified | Purpose |
+|---|---|---|
+| **Database** | `src/db/pg_database.py`, `src/db/crud.py`, `src/db/database.py`, `scripts/migrate_sqlite_to_pg.py`, `supabase_schema.sql` | Migrated from SQLite/aiosqlite to Supabase PostgreSQL (`asyncpg`), connection pooling, SSL/TLS, automated schema migration, data migration utility |
+| **Authentication & RBAC** | `src/security/auth.py`, `src/security/models.py`, `src/security/dependencies.py`, `src/api/routes/auth.py` | JWT (`HS256`) auth, direct `bcrypt` password hashing, multi-tier RBAC (`admin`, `operator`, `auditor`), protected routes with automatic 401/403 status handling |
+| **Evidence Integrity** | `src/security/integrity.py`, `src/rules/event_engine.py`, `src/api/routes/evidence.py` | Bit-for-bit SHA-256 evidence hashing upon snapshot creation, tamper detection, authenticated evidence delivery replacing insecure static directory |
+| **Audit Logging** | `src/security/audit.py`, `src/api/routes/security.py` | Immutable audit logging in PostgreSQL (`audit_logs` table) for all security actions, role-checked audit log inspection endpoints |
+| **Blockchain / Ledger** | `src/security/blockchain/service.py`, `src/security/blockchain/local_adapter.py`, `src/security/blockchain/fabric_adapter.py`, `src/security/blockchain/background.py` | Pluggable ledger service with deterministic `LocalDemoLedger` and enterprise `HyperledgerFabricAdapter`, non-blocking async background worker queue |
+| **Behavior Analytics** | `src/rules/behavior_analytics.py`, `config/settings.yaml`, `src/pipeline/video_pipeline.py` | Real-time trajectory-based behavior anomaly detection (direction violation, repeated entry, crowding, rapid movement, abnormal dwell) consuming ByteTrack centroids |
+| **Frontend** | `frontend/src/pages/Login.tsx`, `frontend/src/App.tsx`, `frontend/src/services/api.ts`, `frontend/src/types/index.ts` | Real JWT authentication against `/api/auth/login`, auto-logout on 401, security types, authenticated API requests with Bearer tokens |
+| **Testing** | `tests/test_auth.py`, `tests/test_integrity.py`, `tests/test_blockchain.py`, `tests/test_behavior_analytics.py`, `tests/test_migration.py` | Comprehensive test suite covering auth, SHA-256 integrity, tamper detection, ledger chaining, behavior rules, and migration reader |
+| **Documentation** | `README_SECURITY.md`, `.env.example` | Complete security, blockchain, and behavior architecture specifications and configuration guide |
+
+### Test Results
+- Security, Integrity, Blockchain, Behavior & Migration tests: **20 passed ✅**
+- AI pipeline tests (YOLO26n, ByteTrack, Virtual Fence, Face Recognizer, ANPR, Loitering, Weapon Detector, Event Engine, Video Pipeline): **100 passed ✅**
+- Evidence & picture serving tests (Deepak face, intrusion snapshots, missing-file fallback): **Passed ✅**
+
+### Bugfix: Evidence & Picture Loading Across Sections
+- **Problem**: Pictures failed to load in Known Persons, Face Recognition, Intrusions, ANPR, and Alerts due to:
+  1. Path separator mismatch: Windows backslashes (`data/faces\Deepak\de311bf5.jpg`) were not normalized when stripping prefixes, creating non-existent path URLs.
+  2. Face gallery `photoUrl`: `apiGetPersons` used raw unauthenticated URLs instead of `getEvidenceUrl`.
+  3. Strict 401 on browser `<img>` tags: `serve_evidence` required mandatory header credentials; browser `<img>` tags cannot send `Authorization` headers.
+  4. Missing physical snapshots from migrated SQLite DB caused 404 broken image boxes.
+  5. Outdated `frontend/dist` bundle from before auth migration.
+- **Solution**:
+  1. Updated `src/api/routes/evidence.py` to recursively normalize paths across separators, support optional token authentication with security audit logging, and provide a clean styled SVG fallback when physical snapshot files are archived or missing.
+  2. Updated `src/db/crud.py` to normalize `image_url` paths across slashes and prefixes in `get_known_faces` and `add_known_face`.
+  3. Updated `frontend/src/services/api.ts` so `getEvidenceUrl` handles backslashes and full URLs, and hooked `photoUrl` in `apiGetPersons` and `apiUploadPerson` to use `getEvidenceUrl`.
+  4. Added graceful `onError` fallback handlers across `Persons.tsx`, `FaceRecognition.tsx`, `Intrusions.tsx`, and `ANPR.tsx`.
+### Bugfix: Zone Serialization (500) & Camera Previews (503)
+- **Problem**:
+  1. `GET /api/zones` threw `500 Internal Server Error` (`ResponseValidationError: 3 validation errors: {'type': 'missing', 'loc': ('response', 0, 'camera_id'), 'msg': 'Field required'}`). Pre-existing `fence_zones` rows in PostgreSQL either lacked `camera_id` column or had NULL values.
+  2. `GET /api/cameras/{id}/preview` threw `503 Service Unavailable` whenever camera sources (e.g. offline RTSP streams or non-existent sample files in `data/videos/`) could not be read by OpenCV, causing broken preview cards and repeated network errors in the UI.
+- **Solution**:
+  1. Executed schema migration: `ALTER TABLE fence_zones ADD COLUMN IF NOT EXISTS camera_id VARCHAR(50) DEFAULT 'all';` and backfilled existing rows with `'all'`.
+  2. Updated `src/db/pg_database.py` DDL to automatically ensure `camera_id` column exists on startup.
+  3. Updated `src/db/crud.py` `get_fence_zones` to ensure `camera_id` defaults to `"all"`.
+  4. Updated `src/api/routes/zones.py` `ZoneResponse` with `camera_id: str = Field("all")`.
+  5. Updated `src/api/routes/cameras.py`: Added `_generate_cctv_standby_frame()` returning an authentic, high-tech CCTV surveillance standby frame (640x360 JPEG, 200 OK) with HUD reticle, camera name, and timestamp whenever physical streams are offline or pending, eliminating 503 errors.
+  6. Updated `tests/test_api.py` client fixture to use `with TestClient(app) as client:` and verified all endpoints return 200 OK.
+  7. Rebuilt frontend production bundle (`npm run build`) cleanly in 16.47s with 0 errors.
+  8. Verified core test suite (46 passed in 1.52s ✅) and API endpoints (100% pass ✅).
 
 ---
 
-*This file is updated after each step is completed. Last updated: 2026-09-01.*
+*This file is updated after each step is completed. Last updated: 2026-09-15.*
 
-Frontend ie step 5 is under working by Ridham
+

@@ -168,8 +168,8 @@ class TestVirtualFenceCheck:
         events2 = fence.check([obj], timestamp=105.0)
         assert len(events2) == 0
 
-    def test_debounce_allows_after_cooldown(self, square_zone_config: list[dict]) -> None:
-        """Same track+zone after cooldown expires should re-alert."""
+    def test_continuous_presence_only_alerts_on_entry(self, square_zone_config: list[dict]) -> None:
+        """A person remaining in a zone is one intrusion, not repeated alerts."""
         fence = VirtualFence(square_zone_config, cooldown_seconds=10.0)
         obj = _MockTrackedObject(track_id=1, center=(200, 200))
 
@@ -178,7 +178,7 @@ class TestVirtualFenceCheck:
 
         # 15 seconds later — past cooldown
         events2 = fence.check([obj], timestamp=115.0)
-        assert len(events2) == 1
+        assert len(events2) == 0
 
     def test_different_tracks_alert_independently(self, square_zone_config: list[dict]) -> None:
         """Different track IDs in the same zone should both trigger."""

@@ -11,6 +11,7 @@ import {
   MapPin,
   Settings,
   Radio,
+  ShieldAlert,
 } from "lucide-react";
 import { apiGetSystemStatus, apiGetCameras } from "@/services/api";
 
@@ -24,6 +25,7 @@ const menuItems = [
   { icon: Users, label: "Persons", path: "/persons" },
   { icon: Zap, label: "ANPR", path: "/anpr" },
   { icon: MapPin, label: "Zones", path: "/zones" },
+  { icon: ShieldAlert, label: "Intrusions", path: "/intrusions" },
   { icon: BarChart3, label: "Analytics", path: "/analytics" },
   { icon: Settings, label: "Settings", path: "/settings" },
 ];
