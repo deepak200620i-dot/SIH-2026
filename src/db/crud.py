@@ -8,28 +8,15 @@ Returns plain ``dict`` objects from ``asyncpg.Record``.
 from __future__ import annotations
 
 import json
-<<<<<<< HEAD
-import os
-=======
 from datetime import datetime, timezone
->>>>>>> 31c5f44e9caa22f979b450929276656e6146cd3b
 from typing import Any, Optional
 
 
-<<<<<<< HEAD
-from src.rules.event_engine import Event
-
-
-
-def _row_to_dict(row: aiosqlite.Row) -> dict[str, Any]:
-    """Convert sqlite row to dictionary and parse JSON fields."""
-=======
 # ───────────────────────── helpers ──────────────────────────────────────
 def _rec(row) -> dict[str, Any]:
     """Convert an asyncpg.Record to a plain dict."""
     if row is None:
         return {}
->>>>>>> 31c5f44e9caa22f979b450929276656e6146cd3b
     d = dict(row)
     # Stringify datetimes for JSON compatibility
     for k, v in d.items():
@@ -55,26 +42,6 @@ def _rec(row) -> dict[str, Any]:
 
 
 
-<<<<<<< HEAD
-    query = """
-        INSERT INTO events (
-            timestamp, event_type, severity, camera_id, track_id,
-            class_name, zone_name, face_name, plate_text, confidence,
-            bbox, snapshot, metadata, status
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    """
-    params = (
-        event.timestamp,
-        event.event_type,
-        event.severity,
-        event.camera_id,
-        event.track_id,
-        event.class_name,
-        event.zone_name,
-        event.face_name,
-        event.plate_text,
-        event.confidence,
-=======
 # ───────────────────────── EVENTS ──────────────────────────────────────
 async def create_event(
     conn,
@@ -131,28 +98,14 @@ async def create_event(
         face_name,
         plate_text,
         confidence,
->>>>>>> 31c5f44e9caa22f979b450929276656e6146cd3b
         bbox_json,
         snapshot,
         meta_json,
-<<<<<<< HEAD
-        event.status,
-=======
         status,
         evidence_sha256,
         integrity_status,
->>>>>>> 31c5f44e9caa22f979b450929276656e6146cd3b
     )
     return _rec(row)
-
-
-async def update_event_status(
-    db: aiosqlite.Connection, event_id: int, status: str
-) -> dict[str, Any] | None:
-    """Persist an operator acknowledgement/investigation state for an event."""
-    await db.execute("UPDATE events SET status = ? WHERE id = ?", (status, event_id))
-    await db.commit()
-    return await get_event_by_id(db, event_id)
 
 
 async def get_events(
@@ -197,51 +150,6 @@ async def get_events(
     params.extend([limit, offset])
     rows = await conn.fetch(items_q, *params)
 
-<<<<<<< HEAD
-    cur = await db.execute("SELECT * FROM cameras WHERE id = ?", (camera_id,))
-    row = await cur.fetchone()
-    return dict(row)
-
-
-async def get_known_faces(db: aiosqlite.Connection) -> list[dict[str, Any]]:
-    """List all registered known faces."""
-    cur = await db.execute("SELECT id, name, image_path, created_at FROM known_faces ORDER BY id DESC")
-    rows = await cur.fetchall()
-    results = []
-    for row in rows:
-        d = dict(row)
-        img_path = d.get("image_path")
-        # Format image URL for API response
-        if img_path:
-            relative_path = os.path.relpath(img_path, "data/faces").replace("\\", "/")
-            d["image_url"] = f"/api/faces/images/{relative_path}"
-        else:
-            d["image_url"] = None
-        results.append(d)
-    return results
-
-
-async def add_known_face(
-    db: aiosqlite.Connection,
-    name: str,
-    image_path: Optional[str] = None,
-    embedding: Optional[bytes] = None,
-) -> dict[str, Any]:
-    """Insert a new known face record."""
-    cursor = await db.execute(
-        "INSERT INTO known_faces (name, image_path, embedding) VALUES (?, ?, ?)",
-        (name, image_path, embedding),
-    )
-    await db.commit()
-    face_id = cursor.lastrowid
-
-    cur = await db.execute("SELECT id, name, image_path, created_at FROM known_faces WHERE id = ?", (face_id,))
-    row = await cur.fetchone()
-    d = dict(row)
-    if d.get("image_path"):
-        relative_path = os.path.relpath(d["image_path"], "data/faces").replace("\\", "/")
-        d["image_url"] = f"/api/faces/images/{relative_path}"
-=======
     return {"items": [_rec(r) for r in rows], "total": total}
 
 
@@ -380,42 +288,11 @@ async def add_known_face(
                 norm = norm[len(pfx):]
                 break
         d["image_url"] = f"/api/evidence/{norm}"
->>>>>>> 31c5f44e9caa22f979b450929276656e6146cd3b
     else:
         d["image_url"] = None
     return d
 
 
-<<<<<<< HEAD
-async def delete_known_face(db: aiosqlite.Connection, face_id: int) -> bool:
-    """Delete a known face record by ID."""
-    cur = await db.execute("SELECT image_path FROM known_faces WHERE id = ?", (face_id,))
-    row = await cur.fetchone()
-    if not row:
-        return False
-    await db.execute("DELETE FROM known_faces WHERE id = ?", (face_id,))
-    await db.commit()
-    return True
-
-
-async def get_fence_zones(
-    db: aiosqlite.Connection,
-    camera_id: Optional[str] = None,
-) -> list[dict[str, Any]]:
-    """List all configured fence zones, optionally filtering by camera_id."""
-    if camera_id and camera_id != "all":
-        cur = await db.execute(
-            "SELECT * FROM fence_zones WHERE camera_id = ? OR camera_id = 'all' ORDER BY id ASC",
-            (camera_id,),
-        )
-    else:
-        cur = await db.execute("SELECT * FROM fence_zones ORDER BY id ASC")
-    rows = await cur.fetchall()
-    results = []
-    for row in rows:
-        d = dict(row)
-        if "polygon" in d and isinstance(d["polygon"], str):
-=======
 async def delete_known_face(conn, face_id: int) -> bool:
     result = await conn.execute("DELETE FROM known_faces WHERE id = $1", face_id)
     return result.endswith("1")
@@ -442,48 +319,19 @@ async def get_fence_zones(
         d = _rec(r)
         # polygon is already JSONB → Python list
         if d.get("polygon") and isinstance(d["polygon"], str):
->>>>>>> 31c5f44e9caa22f979b450929276656e6146cd3b
             try:
                 d["polygon"] = json.loads(d["polygon"])
             except Exception:
                 pass
-<<<<<<< HEAD
-=======
         if not d.get("camera_id"):
             d["camera_id"] = "all"
         if "updated_at" in d:
             d["created_at"] = d.pop("updated_at", None)
->>>>>>> 31c5f44e9caa22f979b450929276656e6146cd3b
         results.append(d)
     return results
 
 
 async def create_fence_zone(
-<<<<<<< HEAD
-    db: aiosqlite.Connection,
-    name: str,
-    polygon: list[list[int]],
-    severity: str = "high",
-    camera_id: str = "all",
-) -> dict[str, Any]:
-    """Insert or update a fence zone."""
-    poly_json = json.dumps(polygon)
-    query = """
-        INSERT INTO fence_zones (name, camera_id, polygon, severity)
-        VALUES (?, ?, ?, ?)
-        ON CONFLICT(name) DO UPDATE SET
-            camera_id=excluded.camera_id,
-            polygon=excluded.polygon,
-            severity=excluded.severity
-    """
-    cursor = await db.execute(query, (name, camera_id, poly_json, severity))
-    await db.commit()
-
-    cur = await db.execute("SELECT * FROM fence_zones WHERE name = ?", (name,))
-    row = await cur.fetchone()
-    d = dict(row)
-    if "polygon" in d and isinstance(d["polygon"], str):
-=======
     conn,
     *,
     name: str,
@@ -508,25 +356,10 @@ async def create_fence_zone(
     )
     d = _rec(row)
     if d.get("polygon") and isinstance(d["polygon"], str):
->>>>>>> 31c5f44e9caa22f979b450929276656e6146cd3b
         try:
             d["polygon"] = json.loads(d["polygon"])
         except Exception:
             pass
-<<<<<<< HEAD
-    return d
-
-
-async def delete_fence_zone(db: aiosqlite.Connection, zone_id: int) -> bool:
-    """Delete a fence zone by ID."""
-    cur = await db.execute("SELECT id FROM fence_zones WHERE id = ?", (zone_id,))
-    row = await cur.fetchone()
-    if not row:
-        return False
-    await db.execute("DELETE FROM fence_zones WHERE id = ?", (zone_id,))
-    await db.commit()
-    return True
-=======
     if "updated_at" in d:
         d["created_at"] = d.pop("updated_at", None)
     return d
@@ -594,4 +427,3 @@ async def update_event_metadata(conn, event_id: int, updates: dict[str, Any]) ->
         event_id,
     )
     return result.endswith("1")
->>>>>>> 31c5f44e9caa22f979b450929276656e6146cd3b

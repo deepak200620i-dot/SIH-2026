@@ -112,17 +112,6 @@ class VirtualFence:
             ))
         self.zones = new_zones
 
-    def update_zones(self, zones: list[dict[str, Any]]) -> None:
-        """Update active fence zones dynamically."""
-        new_zones: list[FenceZone] = []
-        for z in zones:
-            new_zones.append(FenceZone(
-                name=z["name"],
-                polygon=z["polygon"],
-                severity=z.get("severity", "high"),
-            ))
-        self.zones = new_zones
-
     # ── Core algorithm ───────────────────────────────────────────────────
 
     @staticmethod

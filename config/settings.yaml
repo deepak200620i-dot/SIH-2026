@@ -23,7 +23,7 @@ fence:
 face:
   gallery_path: data/faces
   similarity_threshold: 0.6
-  model_name: buffalo_sc
+  model_name: buffalo_l
   det_size:
   - 640
   - 640

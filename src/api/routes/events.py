@@ -13,11 +13,7 @@ from typing import Any, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query, WebSocket, WebSocketDisconnect
 
 from src.api.models import EventCreate, EventListResponse, EventResponse, EventStatusUpdate, StatsResponse
-<<<<<<< HEAD
-from src.db.crud import create_event, get_event_by_id, get_events, get_stats, update_event_status
-=======
 from src.db.crud import create_event, get_event, get_events, get_event_stats, update_event_status
->>>>>>> 31c5f44e9caa22f979b450929276656e6146cd3b
 from src.db.database import get_db
 from src.rules.event_engine import Event
 
@@ -99,23 +95,6 @@ async def get_event_endpoint(
     return EventResponse(**event_dict)
 
 
-<<<<<<< HEAD
-@router.patch("/{event_id}/status", response_model=EventResponse)
-async def set_event_status(
-    event_id: int,
-    payload: EventStatusUpdate,
-    db: aiosqlite.Connection = Depends(get_db),
-) -> EventResponse:
-    """Store an operator action for an event and publish the updated record."""
-    event_dict = await update_event_status(db, event_id, payload.status)
-    if not event_dict:
-        raise HTTPException(status_code=404, detail="Event not found")
-    await ws_manager.broadcast({"type": "EVENT_UPDATED", "data": event_dict})
-    return EventResponse(**event_dict)
-
-
-@router.post("", response_model=EventResponse, status_code=201)
-=======
 @router.patch("/{event_id}/status")
 async def set_event_status(
     event_id: int,
@@ -132,7 +111,6 @@ async def set_event_status(
 
 
 @router.post("", status_code=201)
->>>>>>> 31c5f44e9caa22f979b450929276656e6146cd3b
 async def post_event(
     payload: EventCreate,
     db=Depends(get_db),
@@ -222,92 +200,6 @@ async def clear_all_events(
     await db.execute("DELETE FROM events")
     await ws_manager.broadcast({"type": "EVENTS_CLEARED", "data": {}})
     return {"status": "success", "message": "All events cleared"}
-
-
-@router.post("/simulate", response_model=EventResponse, status_code=201)
-async def simulate_event(
-    db: aiosqlite.Connection = Depends(get_db),
-) -> EventResponse:
-    """Generate a realistic simulated security event and broadcast via WebSocket."""
-    import datetime
-    import random
-
-    scenarios = [
-        {
-            "event_type": "intrusion",
-            "severity": "critical",
-            "class_name": "person",
-            "zone_name": "perimeter_zone",
-            "confidence": 0.94,
-            "bbox": [420, 210, 580, 680],
-            "metadata": {"zone_type": "border_fence", "simulated": True},
-        },
-        {
-            "event_type": "loitering",
-            "severity": "high",
-            "class_name": "person",
-            "zone_name": "restricted_area_1",
-            "confidence": 0.88,
-            "bbox": [250, 180, 390, 560],
-            "metadata": {"dwell_time_seconds": 65.4, "simulated": True},
-        },
-        {
-            "event_type": "face_match",
-            "severity": "medium",
-            "class_name": "person",
-            "face_name": "john_doe",
-            "confidence": 0.92,
-            "bbox": [310, 140, 420, 280],
-            "metadata": {"match_type": "known_personnel", "simulated": True},
-        },
-        {
-            "event_type": "anpr",
-            "severity": "medium",
-            "class_name": "car",
-            "plate_text": "DL01AB1234",
-            "confidence": 0.96,
-            "bbox": [550, 320, 920, 610],
-            "metadata": {"country": "IND", "simulated": True},
-        },
-    ]
-
-    choice = random.choice(scenarios)
-    now_iso = datetime.datetime.now(datetime.timezone.utc).isoformat()
-
-    event_obj = Event(
-        timestamp=now_iso,
-        event_type=choice["event_type"],
-        severity=choice["severity"],
-        camera_id="cam_01",
-        track_id=random.randint(10, 99),
-        class_name=choice.get("class_name"),
-        zone_name=choice.get("zone_name"),
-        face_name=choice.get("face_name"),
-        plate_text=choice.get("plate_text"),
-        confidence=choice.get("confidence"),
-        bbox=choice.get("bbox"),
-        metadata=choice.get("metadata"),
-    )
-
-    created = await create_event(db, event_obj)
-    event_dict = created.to_dict()
-
-    await ws_manager.broadcast({"type": "NEW_EVENT", "data": event_dict})
-    return EventResponse(**event_dict)
-
-
-@router.delete("", response_model=dict[str, Any])
-async def clear_all_events(
-    db: aiosqlite.Connection = Depends(get_db),
-) -> dict[str, Any]:
-    """Clear all events from the database."""
-    await db.execute("DELETE FROM events")
-    await db.commit()
-    await ws_manager.broadcast({"type": "EVENTS_CLEARED", "data": {}})
-    return {"status": "success", "message": "All events cleared"}
-
-
-
 
 
 @router.websocket("/stream")

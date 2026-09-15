@@ -22,8 +22,6 @@ const getDefaultApiBase = () => {
 
 const API_BASE = getDefaultApiBase();
 
-<<<<<<< HEAD
-=======
 // ============ AUTH HELPERS ============
 export const getEvidenceUrl = (path: string | undefined): string | undefined => {
   if (!path) return undefined;
@@ -66,7 +64,6 @@ const authFetch = async (url: string, options: RequestInit = {}): Promise<Respon
   return res;
 };
 
->>>>>>> 31c5f44e9caa22f979b450929276656e6146cd3b
 // Helper to map backend event_type to Frontend EventType
 const mapEventType = (rawType: string): EventType => {
   const t = (rawType || "").toLowerCase();
@@ -75,15 +72,12 @@ const mapEventType = (rawType: string): EventType => {
   if (t === "face_match") return "FACE_RECOGNIZED";
   if (t === "face_unknown") return "UNKNOWN_FACE";
   if (t === "anpr") return "ANPR_DETECTED";
-<<<<<<< HEAD
-=======
   if (t === "weapon_detected") return "WEAPON_DETECTED";
   if (t === "direction_violation") return "DIRECTION_VIOLATION";
   if (t === "crowding") return "CROWDING";
   if (t === "rapid_movement") return "RAPID_MOVEMENT";
   if (t === "abnormal_dwell") return "ABNORMAL_DWELL";
   if (t === "repeated_zone_entry") return "REPEATED_ZONE_ENTRY";
->>>>>>> 31c5f44e9caa22f979b450929276656e6146cd3b
   if (t.includes("vehicle")) return "VEHICLE_DETECTED";
   if (t.includes("person")) return "PERSON_DETECTED";
   return "INTRUSION";
@@ -123,19 +117,11 @@ export const mapBackendToSecurityEvent = (raw: any): SecurityEvent => {
     timestamp: raw.timestamp || new Date().toISOString(),
     confidence: raw.confidence ? Math.round(raw.confidence * 100) : 90,
     trackId: raw.track_id || raw.trackId,
-<<<<<<< HEAD
-    personId: raw.face_name || raw.personId,
-    vehicleId: raw.plate_text || raw.vehicleId,
-    evidenceUrl: raw.snapshot
-      ? `${API_BASE}/api/evidence/${raw.snapshot.replace(/^data\/evidence\//, "")}`
-      : undefined,
-=======
     personId: raw.face_name || raw.metadata?.person_identity || raw.personId,
     vehicleId: raw.plate_text || raw.vehicleId,
     evidenceUrl: getEvidenceUrl(raw.snapshot),
 
 
->>>>>>> 31c5f44e9caa22f979b450929276656e6146cd3b
     description: desc,
     status: raw.status || "ACTIVE",
     detailedInfo: raw.metadata || {},
@@ -162,21 +148,14 @@ export const mapBackendToAlert = (raw: any): Alert => {
 // ============ CAMERAS ============
 export const apiGetCameras = async (): Promise<Camera[]> => {
   try {
-<<<<<<< HEAD
-    const res = await fetch(`${API_BASE}/api/cameras`);
-=======
     const res = await authFetch(`${API_BASE}/api/cameras`);
->>>>>>> 31c5f44e9caa22f979b450929276656e6146cd3b
     if (res.ok) {
       const data = await res.json();
       if (Array.isArray(data)) {
         return data.map((c: any) => ({
           id: c.id,
           name: c.name || c.id,
-<<<<<<< HEAD
-=======
           source: c.source,
->>>>>>> 31c5f44e9caa22f979b450929276656e6146cd3b
           location: c.source || "Border Perimeter",
           status: c.status === "active" || c.status === "online" ? "ONLINE" : "OFFLINE",
           fps: 30,
@@ -200,14 +179,8 @@ export const apiAddCamera = async (camera: {
   status?: string;
 }): Promise<boolean> => {
   try {
-<<<<<<< HEAD
-    const res = await fetch(`${API_BASE}/api/cameras`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-=======
     const res = await authFetch(`${API_BASE}/api/cameras`, {
       method: "POST",
->>>>>>> 31c5f44e9caa22f979b450929276656e6146cd3b
       body: JSON.stringify({
         id: camera.id,
         name: camera.name,
@@ -229,12 +202,8 @@ export const apiGetCamera = async (cameraId: string): Promise<Camera | null> => 
 
 export const apiGetCameraStatus = async (cameraId: string): Promise<any> => {
   try {
-<<<<<<< HEAD
-    const res = await fetch(`${API_BASE}/api/events?camera_id=${cameraId}&limit=5`);
-=======
     const res = await authFetch(`${API_BASE}/api/events?camera_id=${cameraId}&limit=5`);
 
->>>>>>> 31c5f44e9caa22f979b450929276656e6146cd3b
     if (res.ok) {
       const data = await res.json();
       const items = data.items || [];
@@ -278,11 +247,7 @@ export const apiUploadVideo = async (
     formData.append("frame_skip", String(frameSkip));
     formData.append("max_frames", "150");
 
-<<<<<<< HEAD
-    const res = await fetch(`${API_BASE}/api/video/upload`, {
-=======
     const res = await authFetch(`${API_BASE}/api/video/upload`, {
->>>>>>> 31c5f44e9caa22f979b450929276656e6146cd3b
       method: "POST",
       body: formData,
     });
@@ -328,14 +293,8 @@ export const apiProcessWebcamFrame = async (
   frameIndex: number = 0
 ): Promise<ProcessFrameResult | null> => {
   try {
-<<<<<<< HEAD
-    const res = await fetch(`${API_BASE}/api/video/process-frame`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-=======
     const res = await authFetch(`${API_BASE}/api/video/process-frame`, {
       method: "POST",
->>>>>>> 31c5f44e9caa22f979b450929276656e6146cd3b
       body: JSON.stringify({
         image: base64Image,
         camera_id: cameraId,
@@ -367,11 +326,7 @@ export const apiGetEvents = async (
     if (filters?.eventType) url += `&event_type=${encodeURIComponent(mapFrontendEventTypeToBackend(filters.eventType))}`;
     if (filters?.cameraId) url += `&camera_id=${filters.cameraId}`;
 
-<<<<<<< HEAD
-    const res = await fetch(url);
-=======
     const res = await authFetch(url);
->>>>>>> 31c5f44e9caa22f979b450929276656e6146cd3b
     if (res.ok) {
       const data = await res.json();
       const items = (data.items || []).map(mapBackendToSecurityEvent);
@@ -468,12 +423,6 @@ export const apiUpdateAlertStatus = async (alertId: string, status: string): Pro
   }
 };
 
-<<<<<<< HEAD
-// ============ PERSONS (Known Faces) ============
-export const apiGetPersons = async (): Promise<Person[]> => {
-  try {
-    const res = await fetch(`${API_BASE}/api/faces`);
-=======
 export const apiDeleteCamera = async (cameraId: string): Promise<boolean> => {
   try {
     return (await fetch(`${API_BASE}/api/cameras/${encodeURIComponent(cameraId)}`, { method: "DELETE" })).ok;
@@ -501,7 +450,6 @@ export const apiStopCamera = async (cameraId: string = "device_webcam"): Promise
 export const apiGetPersons = async (): Promise<Person[]> => {
   try {
     const res = await authFetch(`${API_BASE}/api/faces`);
->>>>>>> 31c5f44e9caa22f979b450929276656e6146cd3b
     if (res.ok) {
       const data = await res.json();
       if (Array.isArray(data)) {
@@ -510,11 +458,7 @@ export const apiGetPersons = async (): Promise<Person[]> => {
           name: f.name,
           category: "Personnel",
           status: "Active",
-<<<<<<< HEAD
-          photoUrl: f.image_url ? `${API_BASE}${f.image_url}` : undefined,
-=======
           photoUrl: getEvidenceUrl(f.image_url || f.image_path),
->>>>>>> 31c5f44e9caa22f979b450929276656e6146cd3b
           lastSeen: f.created_at,
           lastCamera: "cam_01",
         }));
@@ -533,15 +477,6 @@ export const apiUploadPerson = async (name: string, image: File): Promise<Person
     const formData = new FormData();
     formData.append("name", name);
     formData.append("image", image);
-<<<<<<< HEAD
-    const res = await fetch(`${API_BASE}/api/faces`, { method: "POST", body: formData });
-    if (!res.ok) return null;
-    const face = await res.json();
-    return {
-      id: String(face.id), name: face.name, category: "Personnel", status: "Active",
-      photoUrl: face.image_url ? `${API_BASE}${face.image_url}` : undefined,
-      lastSeen: face.created_at, lastCamera: "cam_01",
-=======
     const res = await authFetch(`${API_BASE}/api/faces`, { method: "POST", body: formData });
     if (!res.ok) return null;
     const face = await res.json();
@@ -553,7 +488,6 @@ export const apiUploadPerson = async (name: string, image: File): Promise<Person
       photoUrl: getEvidenceUrl(face.image_url || face.image_path),
       lastSeen: face.created_at,
       lastCamera: "cam_01",
->>>>>>> 31c5f44e9caa22f979b450929276656e6146cd3b
     };
   } catch (err) {
     console.error("Failed to upload person:", err);
@@ -563,11 +497,7 @@ export const apiUploadPerson = async (name: string, image: File): Promise<Person
 
 export const apiDeletePerson = async (personId: string): Promise<boolean> => {
   try {
-<<<<<<< HEAD
-    const res = await fetch(`${API_BASE}/api/faces/${personId}`, { method: "DELETE" });
-=======
     const res = await authFetch(`${API_BASE}/api/faces/${personId}`, { method: "DELETE" });
->>>>>>> 31c5f44e9caa22f979b450929276656e6146cd3b
     return res.ok;
   } catch (err) {
     return false;
@@ -581,14 +511,6 @@ export const apiGetFaceEvents = async (
 ): Promise<PaginatedResponse<FaceEvent>> => {
   try {
     const offset = (page - 1) * pageSize;
-<<<<<<< HEAD
-    const res = await fetch(`${API_BASE}/api/events?limit=${pageSize}&offset=${offset}`);
-    if (res.ok) {
-      const data = await res.json();
-      const faceEvts = (data.items || []).filter((e: any) =>
-        ["face_match", "face_unknown"].includes(e.event_type)
-      );
-=======
     const res = await authFetch(`${API_BASE}/api/events?limit=${pageSize}&offset=${offset}`);
     if (res.ok) {
       const data = await res.json();
@@ -604,24 +526,16 @@ export const apiGetFaceEvents = async (
         seen.add(key);
         return true;
       });
->>>>>>> 31c5f44e9caa22f979b450929276656e6146cd3b
       const items = faceEvts.map((e: any) => ({
         id: String(e.id),
         cameraId: e.camera_id || "cam_01",
         timestamp: e.timestamp,
-<<<<<<< HEAD
-        faceImageUrl: e.snapshot ? `${API_BASE}/api/evidence/${e.snapshot.replace(/^data\/evidence\//, "")}` : "/favicon.svg",
-=======
         faceImageUrl: getEvidenceUrl(e.snapshot) || "/favicon.svg",
->>>>>>> 31c5f44e9caa22f979b450929276656e6146cd3b
         matchStatus: (e.event_type === "face_match" ? "KNOWN" : "UNKNOWN") as any,
         similarity: e.confidence ? Math.round(e.confidence * 100) : 85,
         matchedPersonName: e.face_name,
         confidence: e.confidence ? Math.round(e.confidence * 100) : 90,
-<<<<<<< HEAD
-=======
         timeUnderCameraSeconds: typeof e.metadata?.time_under_camera_seconds === "number" ? Math.floor(e.metadata.time_under_camera_seconds) : undefined,
->>>>>>> 31c5f44e9caa22f979b450929276656e6146cd3b
       }));
       return {
         items,
@@ -657,13 +571,8 @@ export const apiGetANPREvents = async (
         id: String(e.id),
         cameraId: e.camera_id || "cam_03",
         timestamp: e.timestamp,
-<<<<<<< HEAD
-        vehicleImageUrl: e.snapshot ? `${API_BASE}/api/evidence/${e.snapshot.replace(/^data\/evidence\//, "")}` : "/favicon.svg",
-        plateImageUrl: e.snapshot ? `${API_BASE}/api/evidence/${e.snapshot.replace(/^data\/evidence\//, "")}` : "/favicon.svg",
-=======
         vehicleImageUrl: getEvidenceUrl(e.snapshot) || "/favicon.svg",
         plateImageUrl: getEvidenceUrl(e.snapshot) || "/favicon.svg",
->>>>>>> 31c5f44e9caa22f979b450929276656e6146cd3b
         plateNumber: e.plate_text || "UNKNOWN",
         ocrConfidence: e.confidence ? Math.round(e.confidence * 100) : 95,
         status: "AUTHORIZED" as const,
@@ -841,8 +750,6 @@ export const apiGetAnalytics = async (): Promise<AnalyticsData> => {
     if (res.ok) {
       const data = await res.json();
       const events: any[] = data.items || [];
-<<<<<<< HEAD
-=======
       const now = new Date();
       const hourlyBuckets = Array.from({ length: 24 }, (_, index) => {
         const date = new Date(now);
@@ -855,21 +762,17 @@ export const apiGetAnalytics = async (): Promise<AnalyticsData> => {
         const value = new Date(timestamp).getTime();
         return hourlyBuckets.findIndex((bucket, index) => value >= bucket.key && (index === hourlyBuckets.length - 1 || value < hourlyBuckets[index + 1].key));
       };
->>>>>>> 31c5f44e9caa22f979b450929276656e6146cd3b
 
       // Group by camera
       const camMap: Record<string, number> = {};
       const typeMap: Record<string, number> = {};
 
       events.forEach((e) => {
-<<<<<<< HEAD
-=======
         const bucketIndex = bucketFor(e.timestamp);
         if (bucketIndex >= 0) {
           hourlyBuckets[bucketIndex].count += 1;
           if (e.class_name === "person" || String(e.event_type).includes("person") || String(e.event_type).includes("face")) detectionsByHour[bucketIndex].count += 1;
         }
->>>>>>> 31c5f44e9caa22f979b450929276656e6146cd3b
         const cam = e.camera_id || "cam_01";
         camMap[cam] = (camMap[cam] || 0) + 1;
 
@@ -881,19 +784,11 @@ export const apiGetAnalytics = async (): Promise<AnalyticsData> => {
       const eventDistribution = Object.entries(typeMap).map(([type, count]) => ({ type: type as EventType, count }));
 
       return {
-<<<<<<< HEAD
-        alertsTrend: [],
-        intrusionsByCamera,
-        unknownFacesTrend: [],
-        vehicleDetections: [],
-        personDetections: [],
-=======
         alertsTrend: hourlyBuckets.map(({ label, count }) => ({ timestamp: label, count })),
         intrusionsByCamera,
         unknownFacesTrend: hourlyBuckets.map(({ label, count }) => ({ timestamp: label, count })),
         vehicleDetections: [],
         personDetections: detectionsByHour.map(({ label, count }) => ({ timestamp: label, count })),
->>>>>>> 31c5f44e9caa22f979b450929276656e6146cd3b
         eventDistribution,
         cameraActivity: intrusionsByCamera.map((i) => ({ camera: i.camera, events: i.count })),
       };

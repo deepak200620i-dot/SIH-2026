@@ -14,11 +14,8 @@
 | Step 5 | ✅ **Complete** | React dashboard (Vite + Tailwind + WebSockets) |
 | Step 6 | ✅ **Complete** | ANPR + loitering + integration |
 | Step 7 | ✅ **Complete** | End-to-End unified wiring, Render deployment, Supabase schema |
-<<<<<<< HEAD
-=======
 | Step 8 | ✅ **Complete** | Blockchain + Cybersecurity + Supabase PostgreSQL + Behavior Analytics |
 
->>>>>>> 31c5f44e9caa22f979b450929276656e6146cd3b
 
 
 ---

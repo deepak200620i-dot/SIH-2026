@@ -310,19 +310,12 @@ class VideoPipeline:
             if evt:
                 generated_events.append(evt)
 
-<<<<<<< HEAD
-        # Face Events (Debounced per person ID)
-=======
         # Face Events: one record per stable identity for the whole camera session.
->>>>>>> 31c5f44e9caa22f979b450929276656e6146cd3b
         for fm in face_matches:
             # Only trigger if face is recognized or if face_unknown cooldown passes
             event_type = "face_match" if fm.is_known else "face_unknown"
             
             # Use stable unknown_person_id if available to avoid duplicate IDs
-<<<<<<< HEAD
-            tid = fm.unknown_person_id if fm.unknown_person_id is not None else fm.person_track_id
-=======
             # Prefer ByteTrack's camera-local ID; this is stable while a person
             # remains in the feed and prevents repeated unknown-face records.
             tid = self._identity_id(fm)
@@ -334,7 +327,6 @@ class VideoPipeline:
                 existing_face_session["last_seen"] = ts
                 continue
             session_key = f"face:{camera_id}:{tid}"
->>>>>>> 31c5f44e9caa22f979b450929276656e6146cd3b
 
             # If there are restricted zones on this camera, check if person is in a zone
             in_restricted_zone = any(
@@ -417,8 +409,6 @@ class VideoPipeline:
                         generated_events.append(evt)
                         break
 
-<<<<<<< HEAD
-=======
         # Behavior Analytics Events
         for be in behavior_events:
             evt = self.event_engine.process_event(
@@ -437,7 +427,6 @@ class VideoPipeline:
             if evt:
                 generated_events.append(evt)
 
->>>>>>> 31c5f44e9caa22f979b450929276656e6146cd3b
         # 7. Draw Visual Annotations
         annotated = frame.copy()
         annotated = VirtualFence.draw_zones(annotated, self.fence.zones)
@@ -476,11 +465,8 @@ class VideoPipeline:
         """Dynamically update virtual fence zones and loitering detector."""
         self.fence.update_zones(zones)
         self.loitering.zones = self.fence.zones
-<<<<<<< HEAD
-=======
         zone_dicts = [{"name": z.get("name", ""), "polygon": z.get("polygon", []), "severity": z.get("severity", "medium")} for z in zones]
         self.behavior_analytics.update_zones(zone_dicts)
->>>>>>> 31c5f44e9caa22f979b450929276656e6146cd3b
 
     def reset(self) -> None:
         """Reset internal pipeline states."""
@@ -488,12 +474,9 @@ class VideoPipeline:
         self.fence.reset()
         self.loitering.reset()
         self.event_engine.reset()
-<<<<<<< HEAD
-=======
         self.behavior_analytics.reset()
         self._camera_entry_times.clear()
         self._intrusion_sessions.clear()
         self._face_sessions.clear()
->>>>>>> 31c5f44e9caa22f979b450929276656e6146cd3b
         if self.face_recognizer:
             self.face_recognizer.reset()

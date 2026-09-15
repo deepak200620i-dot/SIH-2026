@@ -123,15 +123,10 @@ class EventEngine:
         if timestamp is None:
             timestamp = time.time()
 
-<<<<<<< HEAD
-        key = (track_id, event_type, zone_name)
-        cooldown = 60.0 if "face" in event_type else self.cooldown_seconds
-=======
         key = (camera_id, track_id, event_type, zone_name)
         # A recognised identity is a single observation per camera session,
         # rather than a new event for every frame in which a face is detected.
         cooldown = 300.0 if "face" in event_type else self.cooldown_seconds
->>>>>>> 31c5f44e9caa22f979b450929276656e6146cd3b
         if key in self._last_event:
             elapsed = timestamp - self._last_event[key]
             if elapsed < cooldown:

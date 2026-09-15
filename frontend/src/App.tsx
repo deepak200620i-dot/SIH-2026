@@ -17,17 +17,6 @@ import { useAlerts } from "@/hooks/useAlerts";
 
 
 import { Zones } from "@/pages/Zones";
-<<<<<<< HEAD
-
-export const App: React.FC = () => {
-  const [isAuthenticated, setIsAuthenticated] = useState(
-    () => sessionStorage.getItem("ibvap-authenticated") === "true"
-  );
-  const { alerts } = useAlerts();
-
-  if (!isAuthenticated) {
-    return <Login onLogin={() => { sessionStorage.setItem("ibvap-authenticated", "true"); setIsAuthenticated(true); }} />;
-=======
 import { Intrusions } from "@/pages/Intrusions";
 
 export const App: React.FC = () => {
@@ -75,7 +64,6 @@ export const App: React.FC = () => {
 
   if (!isAuthenticated) {
     return <Login onLogin={handleLogin} />;
->>>>>>> 31c5f44e9caa22f979b450929276656e6146cd3b
   }
 
   return (
@@ -104,4 +92,3 @@ export const App: React.FC = () => {
 };
 
 export default App;
-

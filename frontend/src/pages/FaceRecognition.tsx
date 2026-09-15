@@ -63,12 +63,9 @@ export const FaceRecognition: React.FC = () => {
                     src={event.faceImageUrl}
                     alt="Face"
                     className="w-full h-full object-cover"
-<<<<<<< HEAD
-=======
                     onError={(e) => {
                       (e.target as HTMLImageElement).src = "/favicon.svg";
                     }}
->>>>>>> 31c5f44e9caa22f979b450929276656e6146cd3b
                   />
                 </div>
 
@@ -92,10 +89,7 @@ export const FaceRecognition: React.FC = () => {
                   )}
 
                   <p className="text-gray-400 text-xs">{event.cameraId}</p>
-<<<<<<< HEAD
-=======
                   <p className="text-amber-300 text-xs">Under camera: {event.timeUnderCameraSeconds !== undefined ? `${Math.floor(event.timeUnderCameraSeconds / 60)}m ${event.timeUnderCameraSeconds % 60}s` : "Active — recorded when camera stops"}</p>
->>>>>>> 31c5f44e9caa22f979b450929276656e6146cd3b
                 </div>
               </div>
             ))}
@@ -104,28 +98,17 @@ export const FaceRecognition: React.FC = () => {
           {/* Pagination */}
           <div className="flex items-center justify-between">
             <button
-<<<<<<< HEAD
-              disabled={page === 1}
-              onClick={() => setPage(page - 1)}
-              className="px-4 py-2 bg-gray-800 hover:bg-gray-700 disabled:opacity-50 text-white rounded transition"
-=======
               onClick={() => setPage((p) => Math.max(1, p - 1))}
               disabled={page === 1}
               className="px-4 py-2 bg-gray-800 text-white rounded disabled:opacity-50"
->>>>>>> 31c5f44e9caa22f979b450929276656e6146cd3b
             >
               Previous
             </button>
             <span className="text-gray-400">Page {page}</span>
             <button
-<<<<<<< HEAD
-              onClick={() => setPage(page + 1)}
-              className="px-4 py-2 bg-gray-800 hover:bg-gray-700 text-white rounded transition"
-=======
               onClick={() => setPage((p) => p + 1)}
               disabled={faceEvents.length < 12}
               className="px-4 py-2 bg-gray-800 text-white rounded disabled:opacity-50"
->>>>>>> 31c5f44e9caa22f979b450929276656e6146cd3b
             >
               Next
             </button>

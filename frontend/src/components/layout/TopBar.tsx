@@ -57,9 +57,6 @@ export const TopBar: React.FC<TopBarProps> = ({ title, alertCount = 0 }) => {
 
         {/* Logout */}
         <button
-<<<<<<< HEAD
-          onClick={() => { sessionStorage.removeItem("ibvap-authenticated"); window.location.assign("/"); }}
-=======
           onClick={() => {
             sessionStorage.removeItem("ibvap-token");
             sessionStorage.removeItem("ibvap-role");
@@ -67,7 +64,6 @@ export const TopBar: React.FC<TopBarProps> = ({ title, alertCount = 0 }) => {
             sessionStorage.removeItem("ibvap-authenticated");
             window.location.assign("/");
           }}
->>>>>>> 31c5f44e9caa22f979b450929276656e6146cd3b
           aria-label="Log out"
           className="p-2 hover:bg-gray-800 rounded transition"
         >

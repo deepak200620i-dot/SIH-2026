@@ -18,20 +18,11 @@ import {
   Cpu,
   Layers,
   AlertTriangle,
-<<<<<<< HEAD
-=======
   Trash2,
->>>>>>> 31c5f44e9caa22f979b450929276656e6146cd3b
 } from "lucide-react";
 import {
   apiUploadVideo,
   apiProcessWebcamFrame,
-<<<<<<< HEAD
-  apiAddCamera,
-  VideoUploadResult,
-  ProcessFrameResult,
-} from "@/services/api";
-=======
   apiStopCamera,
   apiAddCamera,
   apiDeleteCamera,
@@ -51,7 +42,6 @@ const CameraPreview: React.FC<{ cameraId: string; name: string }> = ({ cameraId,
   if (error) return <div className="text-center p-6 space-y-2"><div className="text-4xl">📹</div><p className="text-amber-300 text-sm font-medium">Feed unavailable</p><p className="text-gray-500 text-xs">Check the configured camera source and connection.</p></div>;
   return <img src={src} onLoad={() => setError(false)} onError={() => setError(true)} className="absolute inset-0 h-full w-full object-cover" alt={`${name} live feed`} />;
 };
->>>>>>> 31c5f44e9caa22f979b450929276656e6146cd3b
 
 export const LiveSurveillance: React.FC = () => {
   const { cameras, loading, refreshCameras } = useCameras();
@@ -94,10 +84,7 @@ export const LiveSurveillance: React.FC = () => {
   const toggleWebcam = async () => {
     if (isWebcamActive) {
       // Stop webcam
-<<<<<<< HEAD
-=======
       await apiStopCamera("device_webcam");
->>>>>>> 31c5f44e9caa22f979b450929276656e6146cd3b
       if (streamRef.current) {
         streamRef.current.getTracks().forEach((track) => track.stop());
         streamRef.current = null;
@@ -310,8 +297,6 @@ export const LiveSurveillance: React.FC = () => {
     }
   };
 
-<<<<<<< HEAD
-=======
   const handleDeleteCamera = async (camera: Camera) => {
     if (!window.confirm(`Delete ${camera.name}? This removes only the saved camera source.`)) return;
     if (await apiDeleteCamera(camera.id)) {
@@ -321,7 +306,6 @@ export const LiveSurveillance: React.FC = () => {
     }
   };
 
->>>>>>> 31c5f44e9caa22f979b450929276656e6146cd3b
   if (loading) {
     return <LoadingSpinner />;
   }
@@ -445,20 +429,6 @@ export const LiveSurveillance: React.FC = () => {
           >
             {/* Stream Frame */}
             <div className="bg-gray-950 aspect-video flex items-center justify-center relative overflow-hidden">
-<<<<<<< HEAD
-              <div className="text-center p-6 space-y-2">
-                <div className="text-4xl">📹</div>
-                <div className="text-gray-400 font-medium text-sm">{camera.name}</div>
-                <div className="text-gray-600 text-xs font-mono">{camera.location}</div>
-              </div>
-
-              {/* Status Badge Over Video */}
-              <div className="absolute top-3 right-3 bg-black/70 backdrop-blur-sm px-2.5 py-1 rounded-md text-xs font-mono text-emerald-400 border border-emerald-500/30 flex items-center gap-1.5">
-                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-                LIVE {camera.fps || 30} FPS
-              </div>
-
-=======
               <CameraPreview cameraId={camera.id} name={camera.name} />
 
               {/* Status Badge Over Video */}
@@ -467,7 +437,6 @@ export const LiveSurveillance: React.FC = () => {
                 LIVE {camera.fps || 30} FPS
               </div>
 
->>>>>>> 31c5f44e9caa22f979b450929276656e6146cd3b
               {/* Maximize Button */}
               <button
                 onClick={() => setSelectedCamera(camera)}
@@ -521,233 +490,6 @@ export const LiveSurveillance: React.FC = () => {
               <div className="flex items-center gap-2">
                 <Upload className="text-blue-400" size={20} />
                 <h2 className="text-white font-bold text-lg">Upload Video for AI Analytics</h2>
-<<<<<<< HEAD
-              </div>
-              <button
-                onClick={() => {
-                  setIsUploadOpen(false);
-                  setUploadResult(null);
-                  setUploadError(null);
-                }}
-                className="text-gray-400 hover:text-white transition"
-              >
-                <X size={20} />
-              </button>
-            </div>
-
-            {uploadError && (
-              <div className="bg-red-950/60 border border-red-500/50 rounded-xl p-4 flex items-start gap-3 text-red-200 text-xs">
-                <AlertTriangle className="text-red-400 shrink-0 mt-0.5" size={18} />
-                <div>
-                  <strong className="block font-semibold mb-0.5">Upload Failed</strong>
-                  <span>{uploadError}</span>
-                </div>
-              </div>
-            )}
-
-            {!uploadResult ? (
-              <form onSubmit={handleVideoUpload} className="space-y-4">
-                <div className="border-2 border-dashed border-gray-700 hover:border-blue-500 rounded-xl p-8 text-center transition bg-gray-950/50 cursor-pointer relative">
-                  <input
-                    type="file"
-                    accept="video/mp4,video/avi,video/mov,video/mkv"
-                    onChange={(e) => {
-                      if (e.target.files?.[0]) setUploadFile(e.target.files[0]);
-                    }}
-                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                  />
-                  <div className="space-y-2">
-                    <div className="text-4xl">📁</div>
-                    <p className="text-white font-medium text-sm">
-                      {uploadFile ? uploadFile.name : "Select or drag & drop a surveillance video file"}
-                    </p>
-                    <p className="text-gray-500 text-xs">Supports .mp4, .avi, .mov (CCTV footage / sample test)</p>
-                  </div>
-                </div>
-
-                <div className="flex justify-end gap-3 pt-2">
-                  <button
-                    type="button"
-                    onClick={() => setIsUploadOpen(false)}
-                    className="px-4 py-2 bg-gray-800 hover:bg-gray-700 text-gray-300 rounded-lg text-sm transition"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={!uploadFile || isProcessing}
-                    className="flex items-center gap-2 px-5 py-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white rounded-lg font-medium text-sm transition shadow-lg"
-                  >
-                    {isProcessing ? (
-                      <>
-                        <LoadingSpinner />
-                        <span>Running AI Pipeline...</span>
-                      </>
-                    ) : (
-                      <>
-                        <Play size={16} />
-                        <span>Run Video Analytics</span>
-                      </>
-                    )}
-                  </button>
-                </div>
-              </form>
-            ) : (
-              <div className="space-y-4">
-                <div className="bg-emerald-950/40 border border-emerald-500/40 rounded-xl p-4 flex items-start gap-3">
-                  <CheckCircle2 className="text-emerald-400 shrink-0 mt-0.5" size={20} />
-                  <div>
-                    <h3 className="text-white font-bold text-sm">Video Analytics Completed!</h3>
-                    <p className="text-emerald-300/80 text-xs">
-                      All detected events, license plates, and intrusions have been logged to the database.
-                    </p>
-                  </div>
-                </div>
-
-                {/* Summary Metrics */}
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-center">
-                  <div className="bg-gray-800 p-3 rounded-lg border border-gray-700">
-                    <div className="text-gray-400 text-xs">Total Frames</div>
-                    <div className="text-white font-bold text-lg">{uploadResult.total_frames}</div>
-                  </div>
-                  <div className="bg-gray-800 p-3 rounded-lg border border-gray-700">
-                    <div className="text-gray-400 text-xs">Processed</div>
-                    <div className="text-white font-bold text-lg">{uploadResult.processed_frames}</div>
-                  </div>
-                  <div className="bg-gray-800 p-3 rounded-lg border border-gray-700">
-                    <div className="text-gray-400 text-xs">Elapsed Time</div>
-                    <div className="text-white font-bold text-lg">{uploadResult.elapsed_seconds}s</div>
-                  </div>
-                  <div className="bg-gray-800 p-3 rounded-lg border border-gray-700">
-                    <div className="text-gray-400 text-xs">Events Logged</div>
-                    <div className="text-emerald-400 font-bold text-lg">{uploadResult.events_count}</div>
-                  </div>
-                </div>
-
-                <div className="flex justify-end gap-3 pt-2">
-                  <button
-                    onClick={() => {
-                      setUploadResult(null);
-                      setUploadFile(null);
-                    }}
-                    className="px-4 py-2 bg-gray-800 hover:bg-gray-700 text-gray-300 rounded-lg text-sm transition"
-                  >
-                    Upload Another
-                  </button>
-                  <button
-                    onClick={() => {
-                      setIsUploadOpen(false);
-                      setUploadResult(null);
-                      setUploadFile(null);
-                    }}
-                    className="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm transition shadow-lg"
-                  >
-                    Done
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* Add Camera Modal */}
-      {isAddCameraOpen && (
-        <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
-          <div className="bg-gray-900 border border-gray-800 rounded-2xl w-full max-w-md p-6 space-y-6 shadow-2xl">
-            <div className="flex items-center justify-between border-b border-gray-800 pb-4">
-              <div className="flex items-center gap-2">
-                <Plus className="text-blue-400" size={20} />
-                <h2 className="text-white font-bold text-lg">Add Camera Source</h2>
-              </div>
-              <button
-                onClick={() => setIsAddCameraOpen(false)}
-                className="text-gray-400 hover:text-white transition"
-              >
-                <X size={20} />
-              </button>
-            </div>
-
-            <form onSubmit={handleAddCamera} className="space-y-4">
-              <div>
-                <label className="block text-gray-400 text-xs mb-1 font-medium">Camera ID</label>
-                <input
-                  type="text"
-                  placeholder="e.g. cam_05"
-                  value={newCamId}
-                  onChange={(e) => setNewCamId(e.target.value)}
-                  className="w-full bg-gray-950 border border-gray-800 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-blue-500"
-                />
-              </div>
-
-              <div>
-                <label className="block text-gray-400 text-xs mb-1 font-medium">Camera Name</label>
-                <input
-                  type="text"
-                  placeholder="e.g. North Gate Perimeter"
-                  value={newCamName}
-                  onChange={(e) => setNewCamName(e.target.value)}
-                  className="w-full bg-gray-950 border border-gray-800 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-blue-500"
-                />
-              </div>
-
-              <div>
-                <label className="block text-gray-400 text-xs mb-1 font-medium">
-                  Source (RTSP / Stream URL / Local Device)
-                </label>
-                <input
-                  type="text"
-                  placeholder="e.g. rtsp://192.168.1.100:554/stream or 0 for Webcam"
-                  value={newCamSource}
-                  onChange={(e) => setNewCamSource(e.target.value)}
-                  className="w-full bg-gray-950 border border-gray-800 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-blue-500"
-                />
-              </div>
-
-              <div className="flex justify-end gap-3 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setIsAddCameraOpen(false)}
-                  className="px-4 py-2 bg-gray-800 hover:bg-gray-700 text-gray-300 rounded-lg text-sm transition"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium text-sm transition"
-                >
-                  Save Camera
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* Expanded Camera View Modal */}
-      {selectedCamera && (
-        <div className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-4 backdrop-blur-md">
-          <div className="w-full max-w-4xl bg-gray-900 border border-gray-800 rounded-2xl overflow-hidden">
-            <div className="flex items-center justify-between p-4 border-b border-gray-800">
-              <div>
-                <h3 className="text-white font-bold text-base">{selectedCamera.name}</h3>
-                <p className="text-gray-400 text-xs">{selectedCamera.location}</p>
-              </div>
-              <button
-                onClick={() => setSelectedCamera(null)}
-                className="px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white text-xs font-semibold rounded-lg transition"
-              >
-                Close View
-              </button>
-            </div>
-            <div className="bg-black aspect-video flex items-center justify-center">
-              <div className="text-gray-500 text-center space-y-2">
-                <div className="text-6xl">📹</div>
-                <div className="text-gray-400 font-mono text-sm">
-                  {selectedCamera.name} — Live RTSP Feed
-                </div>
-=======
->>>>>>> 31c5f44e9caa22f979b450929276656e6146cd3b
               </div>
               <button
                 onClick={() => {
