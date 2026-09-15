@@ -95,24 +95,8 @@ CREATE INDEX IF NOT EXISTS idx_audit_logs_action ON audit_logs(action);
 -- Seed Initial Data
 -- ========================================================================
 
--- Default Cameras
-INSERT INTO cameras (id, name, source, status)
-VALUES
-    ('cam_01', 'Border Gate Alpha (North)', 'data/videos/test.mp4', 'active'),
-    ('cam_02', 'Perimeter Fence East', 'data/videos/perimeter.mp4', 'active'),
-    ('cam_03', 'Vehicle Checkpoint South', 'data/videos/checkpoint.mp4', 'active'),
-    ('cam_04', 'Watchtower West', 'data/videos/watchtower.mp4', 'active')
-ON CONFLICT (id) DO UPDATE SET
-    name = EXCLUDED.name,
-    source = EXCLUDED.source,
-    status = EXCLUDED.status;
+-- (Default demo cameras and fence zones removed per requirements)
 
--- Default Fence Zones
-INSERT INTO fence_zones (name, polygon, severity)
-VALUES
-    ('restricted_area_1', '[[100, 100], [400, 100], [400, 400], [100, 400]]'::jsonb, 'high'),
-    ('perimeter_zone', '[[0, 300], [640, 300], [640, 480], [0, 480]]'::jsonb, 'critical')
-ON CONFLICT (name) DO NOTHING;
 
 -- ========================================================================
 -- Row Level Security (RLS)

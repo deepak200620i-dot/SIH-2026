@@ -1,0 +1,156 @@
+{
+  "test1": {
+    "model_path": "c:\\Users\\ridha\\Downloads\\SIH-2026\\models\\weapon_detector.pt",
+    "exists": false,
+    "size_bytes": 0,
+    "size_mb": 0,
+    "yolo26n_exists": true,
+    "yolo26n_size_mb": 5.29
+  },
+  "test2": [
+    {
+      "test": "2a_default_init",
+      "available": false,
+      "PASS": true
+    },
+    {
+      "test": "2b_detect_no_model",
+      "count": 0,
+      "PASS": true
+    },
+    {
+      "test": "2c_disabled",
+      "available": false,
+      "PASS": true
+    },
+    {
+      "test": "2d_normalization",
+      "PASS": true
+    },
+    {
+      "test": "2e_draw_detections",
+      "PASS": true
+    },
+    {
+      "test": "2f_center_property",
+      "center": [
+        200,
+        300
+      ],
+      "PASS": true
+    }
+  ],
+  "test3": [
+    {
+      "image": "synth_pistol",
+      "ground_truth": "weapon",
+      "total_detections": 0,
+      "weapon_related": 0,
+      "classes_found": []
+    },
+    {
+      "image": "synth_rifle",
+      "ground_truth": "weapon",
+      "total_detections": 0,
+      "weapon_related": 0,
+      "classes_found": []
+    },
+    {
+      "image": "synth_knife",
+      "ground_truth": "weapon",
+      "total_detections": 0,
+      "weapon_related": 0,
+      "classes_found": []
+    },
+    {
+      "image": "synth_rpg",
+      "ground_truth": "weapon",
+      "total_detections": 1,
+      "weapon_related": 0,
+      "classes_found": [
+        "sports ball"
+      ]
+    },
+    {
+      "image": "synth_grenade",
+      "ground_truth": "weapon",
+      "total_detections": 2,
+      "weapon_related": 0,
+      "classes_found": [
+        "sports ball",
+        "frisbee"
+      ]
+    },
+    {
+      "image": "control_person",
+      "ground_truth": "not_weapon",
+      "total_detections": 0,
+      "weapon_related": 0,
+      "classes_found": []
+    },
+    {
+      "image": "control_car",
+      "ground_truth": "not_weapon",
+      "total_detections": 2,
+      "weapon_related": 0,
+      "classes_found": [
+        "frisbee"
+      ]
+    },
+    {
+      "image": "control_empty",
+      "ground_truth": "not_weapon",
+      "total_detections": 0,
+      "weapon_related": 0,
+      "classes_found": []
+    }
+  ],
+  "test4": {
+    "skipped": true,
+    "reason": "model_not_found"
+  },
+  "test5": [
+    {
+      "test": "5a",
+      "PASS": true
+    },
+    {
+      "test": "5b",
+      "PASS": true
+    },
+    {
+      "test": "5c",
+      "PASS": true
+    },
+    {
+      "test": "5d",
+      "PASS": true
+    },
+    {
+      "test": "5e",
+      "PASS": true
+    }
+  ],
+  "test6": {
+    "weapon_detector_available": false,
+    "weapon_model_labels": [
+      "assault_rifle",
+      "grenade",
+      "gun",
+      "knife",
+      "machine_gun",
+      "military_weapon",
+      "missile_launcher",
+      "mortar",
+      "pistol",
+      "rifle",
+      "rocket_launcher",
+      "rocketlauncher",
+      "rpg",
+      "sniper_rifle",
+      "submachine_gun"
+    ],
+    "weapon_detections_on_empty": 0,
+    "pipeline_runs_without_crash": true
+  }
+}
