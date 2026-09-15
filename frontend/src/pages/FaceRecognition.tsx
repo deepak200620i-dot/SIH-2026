@@ -63,6 +63,9 @@ export const FaceRecognition: React.FC = () => {
                     src={event.faceImageUrl}
                     alt="Face"
                     className="w-full h-full object-cover"
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).src = "/favicon.svg";
+                    }}
                   />
                 </div>
 
@@ -95,16 +98,17 @@ export const FaceRecognition: React.FC = () => {
           {/* Pagination */}
           <div className="flex items-center justify-between">
             <button
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
               disabled={page === 1}
-              onClick={() => setPage(page - 1)}
-              className="px-4 py-2 bg-gray-800 hover:bg-gray-700 disabled:opacity-50 text-white rounded transition"
+              className="px-4 py-2 bg-gray-800 text-white rounded disabled:opacity-50"
             >
               Previous
             </button>
             <span className="text-gray-400">Page {page}</span>
             <button
-              onClick={() => setPage(page + 1)}
-              className="px-4 py-2 bg-gray-800 hover:bg-gray-700 text-white rounded transition"
+              onClick={() => setPage((p) => p + 1)}
+              disabled={faceEvents.length < 12}
+              className="px-4 py-2 bg-gray-800 text-white rounded disabled:opacity-50"
             >
               Next
             </button>

@@ -10,11 +10,10 @@ from __future__ import annotations
 import json
 from typing import Any, Optional
 
-import aiosqlite
 from fastapi import APIRouter, Depends, HTTPException, Query, WebSocket, WebSocketDisconnect
 
 from src.api.models import EventCreate, EventListResponse, EventResponse, EventStatusUpdate, StatsResponse
-from src.db.crud import create_event, get_event_by_id, get_events, get_stats, update_event_status
+from src.db.crud import create_event, get_event, get_events, get_event_stats, update_event_status
 from src.db.database import get_db
 from src.rules.event_engine import Event
 
@@ -38,7 +37,7 @@ class ConnectionManager:
     async def broadcast(self, message: dict[str, Any]) -> None:
         """Broadcast event JSON payload to all active WebSocket clients."""
         disconnected: list[WebSocket] = []
-        payload = json.dumps(message)
+        payload = json.dumps(message, default=str)
         for connection in self.active_connections:
             try:
                 await connection.send_text(payload)
@@ -59,10 +58,10 @@ async def list_events(
     event_type: Optional[str] = Query(None, description="Filter by event type"),
     severity: Optional[str] = Query(None, description="Filter by severity level"),
     camera_id: Optional[str] = Query(None, description="Filter by camera ID"),
-    db: aiosqlite.Connection = Depends(get_db),
+    db=Depends(get_db),
 ) -> EventListResponse:
     """List paginated events with optional type, severity, and camera filters."""
-    items, total = await get_events(
+    result = await get_events(
         db,
         limit=limit,
         offset=offset,
@@ -70,64 +69,63 @@ async def list_events(
         severity=severity,
         camera_id=camera_id,
     )
-    return EventListResponse(items=items, total=total, limit=limit, offset=offset)
+    return EventListResponse(
+        items=result["items"], total=result["total"], limit=limit, offset=offset
+    )
 
 
 @router.get("/stats", response_model=StatsResponse)
 async def fetch_stats(
-    db: aiosqlite.Connection = Depends(get_db),
+    db=Depends(get_db),
 ) -> StatsResponse:
     """Get system-wide event and camera summary statistics."""
-    stats = await get_stats(db)
+    stats = await get_event_stats(db)
     return StatsResponse(**stats)
 
 
 @router.get("/{event_id}", response_model=EventResponse)
-async def get_event(
+async def get_event_endpoint(
     event_id: int,
-    db: aiosqlite.Connection = Depends(get_db),
+    db=Depends(get_db),
 ) -> EventResponse:
     """Fetch details of a single event by ID."""
-    event_dict = await get_event_by_id(db, event_id)
+    event_dict = await get_event(db, event_id)
     if not event_dict:
         raise HTTPException(status_code=404, detail="Event not found")
     return EventResponse(**event_dict)
 
 
-@router.patch("/{event_id}/status", response_model=EventResponse)
+@router.patch("/{event_id}/status")
 async def set_event_status(
     event_id: int,
     payload: EventStatusUpdate,
-    db: aiosqlite.Connection = Depends(get_db),
-) -> EventResponse:
+    db=Depends(get_db),
+) -> dict[str, Any]:
     """Store an operator action for an event and publish the updated record."""
-    event_dict = await update_event_status(db, event_id, payload.status)
-    if not event_dict:
+    success = await update_event_status(db, event_id, payload.status)
+    if not success:
         raise HTTPException(status_code=404, detail="Event not found")
+    event_dict = await get_event(db, event_id)
     await ws_manager.broadcast({"type": "EVENT_UPDATED", "data": event_dict})
-    return EventResponse(**event_dict)
+    return event_dict
 
 
-@router.post("", response_model=EventResponse, status_code=201)
+@router.post("", status_code=201)
 async def post_event(
     payload: EventCreate,
-    db: aiosqlite.Connection = Depends(get_db),
-) -> EventResponse:
+    db=Depends(get_db),
+) -> dict[str, Any]:
     """Create a new event manually and broadcast it via WebSocket."""
-    event_obj = Event(**payload.model_dump())
-    created = await create_event(db, event_obj)
-    event_dict = created.to_dict()
-
-    # Broadcast to WebSocket subscribers
-    await ws_manager.broadcast({"type": "NEW_EVENT", "data": event_dict})
-
-    return EventResponse(**event_dict)
+    data = payload.model_dump()
+    created = await create_event(db, **data)
+    await ws_manager.broadcast({"type": "NEW_EVENT", "data": created})
+    return created
 
 
-@router.post("/simulate", response_model=EventResponse, status_code=201)
+@router.post("/simulate", status_code=201)
 async def simulate_event(
-    db: aiosqlite.Connection = Depends(get_db),
-) -> EventResponse:
+    db=Depends(get_db),
+) -> dict[str, Any]:
     """Generate a realistic simulated security event and broadcast via WebSocket."""
     import datetime
     import random
@@ -174,7 +172,8 @@ async def simulate_event(
     choice = random.choice(scenarios)
     now_iso = datetime.datetime.now(datetime.timezone.utc).isoformat()
 
-    event_obj = Event(
+    created = await create_event(
+        db,
         timestamp=now_iso,
         event_type=choice["event_type"],
         severity=choice["severity"],
@@ -189,25 +188,18 @@ async def simulate_event(
         metadata=choice.get("metadata"),
     )
 
-    created = await create_event(db, event_obj)
-    event_dict = created.to_dict()
-
-    await ws_manager.broadcast({"type": "NEW_EVENT", "data": event_dict})
-    return EventResponse(**event_dict)
+    await ws_manager.broadcast({"type": "NEW_EVENT", "data": created})
+    return created
 
 
-@router.delete("", response_model=dict[str, Any])
+@router.delete("")
 async def clear_all_events(
-    db: aiosqlite.Connection = Depends(get_db),
+    db=Depends(get_db),
 ) -> dict[str, Any]:
     """Clear all events from the database."""
     await db.execute("DELETE FROM events")
-    await db.commit()
     await ws_manager.broadcast({"type": "EVENTS_CLEARED", "data": {}})
     return {"status": "success", "message": "All events cleared"}
-
-
-
 
 
 @router.websocket("/stream")

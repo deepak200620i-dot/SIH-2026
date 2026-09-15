@@ -1,0 +1,214 @@
+{
+  "records": {
+    "234": {
+      "record_id": "819662f7d208ee6a31f7eb4b",
+      "event_id": 234,
+      "camera_id": "device_webcam",
+      "event_type": "intrusion",
+      "severity": "high",
+      "timestamp": "2026-09-13T15:55:10.804289+00:00",
+      "evidence_sha256": "d8a1b633ca551aa24e116932b934e2b97f3814b70bfd6516f30dab4ab28b28ee",
+      "registered_at": "2026-09-13T15:55:11.676897+00:00",
+      "previous_tip": "genesis"
+    },
+    "235": {
+      "record_id": "e4dd049d13ec37e995f13555",
+      "event_id": 235,
+      "camera_id": "device_webcam",
+      "event_type": "intrusion",
+      "severity": "critical",
+      "timestamp": "2026-09-13T15:55:10.861035+00:00",
+      "evidence_sha256": "d8a1b633ca551aa24e116932b934e2b97f3814b70bfd6516f30dab4ab28b28ee",
+      "registered_at": "2026-09-13T15:55:11.897908+00:00",
+      "previous_tip": "819662f7d208ee6a31f7eb4b"
+    },
+    "236": {
+      "record_id": "f960ba22e86c3c78ece4c6b9",
+      "event_id": 236,
+      "camera_id": "device_webcam",
+      "event_type": "face_unknown",
+      "severity": "high",
+      "timestamp": "2026-09-13T15:55:10.867896+00:00",
+      "evidence_sha256": "de2714b2973b45496752e114ac77a68d12de2c743544e4b91ead286ef90aa1da",
+      "registered_at": "2026-09-13T15:55:12.300938+00:00",
+      "previous_tip": "e4dd049d13ec37e995f13555"
+    },
+    "237": {
+      "record_id": "9b31f9fd8a8bfbc6c1f68e52",
+      "event_id": 237,
+      "camera_id": "device_webcam",
+      "event_type": "intrusion",
+      "severity": "high",
+      "timestamp": "2026-09-13T15:55:27.670824+00:00",
+      "evidence_sha256": "9673438d026a74752ef20f3822bca532f78e8f9200c74aa72178d6049ab168b9",
+      "registered_at": "2026-09-13T15:55:28.131395+00:00",
+      "previous_tip": "f960ba22e86c3c78ece4c6b9"
+    },
+    "238": {
+      "record_id": "97909ce5e2824e4d68e85032",
+      "event_id": 238,
+      "camera_id": "device_webcam",
+      "event_type": "intrusion",
+      "severity": "critical",
+      "timestamp": "2026-09-13T15:55:27.682575+00:00",
+      "evidence_sha256": "9673438d026a74752ef20f3822bca532f78e8f9200c74aa72178d6049ab168b9",
+      "registered_at": "2026-09-13T15:55:28.264449+00:00",
+      "previous_tip": "9b31f9fd8a8bfbc6c1f68e52"
+    },
+    "239": {
+      "record_id": "455f85b56d0ed8186f641a43",
+      "event_id": 239,
+      "camera_id": "device_webcam",
+      "event_type": "weapon_detected",
+      "severity": "critical",
+      "timestamp": "2026-09-13T15:55:47.613696+00:00",
+      "evidence_sha256": "00918fe4e668ce2b1ebca786e209a02450504a65391feff04baeb2257cc172b1",
+      "registered_at": "2026-09-13T15:55:47.749836+00:00",
+      "previous_tip": "97909ce5e2824e4d68e85032"
+    },
+    "240": {
+      "record_id": "90396df0ee16c638e402d2c3",
+      "event_id": 240,
+      "camera_id": "device_webcam",
+      "event_type": "intrusion",
+      "severity": "high",
+      "timestamp": "2026-09-13T15:55:56.001989+00:00",
+      "evidence_sha256": "bffb578ac5492e2f9b1c6adc7dc3cc776bd330cdd0c66745eaa88b4f549f0827",
+      "registered_at": "2026-09-13T15:55:56.304485+00:00",
+      "previous_tip": "455f85b56d0ed8186f641a43"
+    },
+    "241": {
+      "record_id": "907015c3891786e2afd38f66",
+      "event_id": 241,
+      "camera_id": "device_webcam",
+      "event_type": "loitering",
+      "severity": "high",
+      "timestamp": "2026-09-13T15:58:02.920520+00:00",
+      "evidence_sha256": "47022d3c97244235238bfc859b5820ef548d7b76f815525899b978e64abd843b",
+      "registered_at": "2026-09-13T15:58:03.451237+00:00",
+      "previous_tip": "90396df0ee16c638e402d2c3"
+    },
+    "242": {
+      "record_id": "20dc9e16dbde0dfb7ffb55ce",
+      "event_id": 242,
+      "camera_id": "device_webcam",
+      "event_type": "loitering",
+      "severity": "high",
+      "timestamp": "2026-09-13T15:58:02.930994+00:00",
+      "evidence_sha256": "47022d3c97244235238bfc859b5820ef548d7b76f815525899b978e64abd843b",
+      "registered_at": "2026-09-13T15:58:03.687970+00:00",
+      "previous_tip": "907015c3891786e2afd38f66"
+    },
+    "243": {
+      "record_id": "0fa57e312c2ec94fad6ac856",
+      "event_id": 243,
+      "camera_id": "device_webcam",
+      "event_type": "abnormal_dwell",
+      "severity": "medium",
+      "timestamp": "2026-09-13T15:58:04.910670+00:00",
+      "evidence_sha256": "a0835e890911adc2b18f6a619a0d85e5b5b8686fe4a6b42e2dc8d15b8e546474",
+      "registered_at": "2026-09-13T15:58:05.216392+00:00",
+      "previous_tip": "20dc9e16dbde0dfb7ffb55ce"
+    },
+    "244": {
+      "record_id": "1584fb4219398ae8fea5767f",
+      "event_id": 244,
+      "camera_id": "device_webcam",
+      "event_type": "loitering",
+      "severity": "high",
+      "timestamp": "2026-09-13T15:58:32.973623+00:00",
+      "evidence_sha256": "60b638f27731601f4758acd3a9890bc6af04d446620345d332f1fed768216a9e",
+      "registered_at": "2026-09-13T15:58:33.137023+00:00",
+      "previous_tip": "0fa57e312c2ec94fad6ac856"
+    },
+    "245": {
+      "record_id": "dedba5c998887e45020d8833",
+      "event_id": 245,
+      "camera_id": "device_webcam",
+      "event_type": "loitering",
+      "severity": "high",
+      "timestamp": "2026-09-13T15:58:32.985979+00:00",
+      "evidence_sha256": "60b638f27731601f4758acd3a9890bc6af04d446620345d332f1fed768216a9e",
+      "registered_at": "2026-09-13T15:58:33.393627+00:00",
+      "previous_tip": "1584fb4219398ae8fea5767f"
+    },
+    "246": {
+      "record_id": "f29aee2a522bddb069b3f7f6",
+      "event_id": 246,
+      "camera_id": "device_webcam",
+      "event_type": "abnormal_dwell",
+      "severity": "medium",
+      "timestamp": "2026-09-13T15:58:35.457777+00:00",
+      "evidence_sha256": "56d6a83b939c32ba399171f93b4d6b258c9e0a9429a66465160f0aae04df527f",
+      "registered_at": "2026-09-13T15:58:35.945564+00:00",
+      "previous_tip": "dedba5c998887e45020d8833"
+    },
+    "247": {
+      "record_id": "7ae0c115ee1faf1b5eb979ba",
+      "event_id": 247,
+      "camera_id": "device_webcam",
+      "event_type": "intrusion",
+      "severity": "high",
+      "timestamp": "2026-09-13T15:59:07.703947+00:00",
+      "evidence_sha256": "c8f50814f231593a01bddecff65e0fdfdcdcb12e2b90d21ed67ad98dbdb826ee",
+      "registered_at": "2026-09-13T15:59:08.263535+00:00",
+      "previous_tip": "f29aee2a522bddb069b3f7f6"
+    },
+    "248": {
+      "record_id": "c860421eed8850d6cdb38f18",
+      "event_id": 248,
+      "camera_id": "device_webcam",
+      "event_type": "intrusion",
+      "severity": "critical",
+      "timestamp": "2026-09-13T15:59:07.745699+00:00",
+      "evidence_sha256": "c8f50814f231593a01bddecff65e0fdfdcdcb12e2b90d21ed67ad98dbdb826ee",
+      "registered_at": "2026-09-13T15:59:08.437359+00:00",
+      "previous_tip": "7ae0c115ee1faf1b5eb979ba"
+    },
+    "249": {
+      "record_id": "f73935a1edccf098ee746e9a",
+      "event_id": 249,
+      "camera_id": "device_webcam",
+      "event_type": "face_match",
+      "severity": "low",
+      "timestamp": "2026-09-13T15:59:07.753793+00:00",
+      "evidence_sha256": "62aacee23a89a477b3264797d2d2826c53637bcdb8d7fa4505a9246a6c95e026",
+      "registered_at": "2026-09-13T15:59:08.560317+00:00",
+      "previous_tip": "c860421eed8850d6cdb38f18"
+    },
+    "250": {
+      "record_id": "3ed3c046f91b13456325af07",
+      "event_id": 250,
+      "camera_id": "device_webcam",
+      "event_type": "intrusion",
+      "severity": "high",
+      "timestamp": "2026-09-14T05:55:09.881828+00:00",
+      "evidence_sha256": "a387dddf21237502333ac29e222324741ef29c1ad3ba8dd720505323cf17bc3f",
+      "registered_at": "2026-09-14T05:55:10.712519+00:00",
+      "previous_tip": "f73935a1edccf098ee746e9a"
+    },
+    "251": {
+      "record_id": "36f3713c0c472ae391305e0b",
+      "event_id": 251,
+      "camera_id": "device_webcam",
+      "event_type": "intrusion",
+      "severity": "critical",
+      "timestamp": "2026-09-14T05:55:09.942367+00:00",
+      "evidence_sha256": "a387dddf21237502333ac29e222324741ef29c1ad3ba8dd720505323cf17bc3f",
+      "registered_at": "2026-09-14T05:55:10.773907+00:00",
+      "previous_tip": "3ed3c046f91b13456325af07"
+    },
+    "252": {
+      "record_id": "ac4ac71b98903147c8f08771",
+      "event_id": 252,
+      "camera_id": "device_webcam",
+      "event_type": "face_match",
+      "severity": "low",
+      "timestamp": "2026-09-14T05:55:09.951368+00:00",
+      "evidence_sha256": "efaa52ca9dea042e27f241d7e4bb2c37ddde452a9e2a7f02e8385f82b43851d5",
+      "registered_at": "2026-09-14T05:55:10.907463+00:00",
+      "previous_tip": "36f3713c0c472ae391305e0b"
+    }
+  },
+  "chain_tip": "ac4ac71b98903147c8f08771"
+}

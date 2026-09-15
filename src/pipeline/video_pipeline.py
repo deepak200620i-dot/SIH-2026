@@ -25,6 +25,7 @@ import yaml
 from src.anpr.plate_reader import PlateMatch, PlateReader
 from src.detection.weapon_detector import WeaponDetection, WeaponDetector
 from src.face.recognizer import FaceMatch, FaceRecognizer
+from src.rules.behavior_analytics import BehaviorAnalytics, BehaviorEvent
 from src.rules.event_engine import Event, EventEngine
 from src.rules.loitering import LoiteringDetector, LoiteringEvent
 from src.rules.virtual_fence import FenceEvent, VirtualFence
@@ -43,6 +44,7 @@ class PipelineFrameResult:
     face_matches: list[FaceMatch] = field(default_factory=list)
     plate_matches: list[PlateMatch] = field(default_factory=list)
     weapon_detections: list[WeaponDetection] = field(default_factory=list)
+    behavior_events: list[BehaviorEvent] = field(default_factory=list)
     generated_events: list[Event] = field(default_factory=list)
     completed_intrusions: list[dict[str, Any]] = field(default_factory=list)
     annotated_frame: Optional[np.ndarray] = None
@@ -103,6 +105,11 @@ class VideoPipeline:
 
         # 7. Event Engine
         self.event_engine = EventEngine(self.config)
+
+        # 8. Behavior Analytics (trajectory-based)
+        zone_dicts = [{"name": z.get("name", ""), "polygon": z.get("polygon", []), "severity": z.get("severity", "medium")} for z in zones]
+        self.behavior_analytics = BehaviorAnalytics(self.config, zones=zone_dicts)
+
         self._camera_entry_times: dict[tuple[str, int], float] = {}
         self._intrusion_sessions: dict[tuple[str, int, str], dict[str, Any]] = {}
         self._face_sessions: dict[tuple[str, int], dict[str, Any]] = {}
@@ -170,6 +177,9 @@ class VideoPipeline:
         plate_matches: list[PlateMatch] = []
         if self.enable_anpr and self.plate_reader:
             plate_matches = self.plate_reader.read_frame(frame, tracked_objects)
+
+        # 5.5 Behavior Analytics (trajectory-based)
+        behavior_events = self.behavior_analytics.analyze(tracked_objects, frame_time=ts)
 
         # 6. Event Processing & Persisting
         generated_events: list[Event] = []
@@ -399,6 +409,24 @@ class VideoPipeline:
                         generated_events.append(evt)
                         break
 
+        # Behavior Analytics Events
+        for be in behavior_events:
+            evt = self.event_engine.process_event(
+                event_type=be.event_type,
+                track_id=be.track_id,
+                class_name=be.class_name,
+                zone_name=be.zone_name,
+                zone_severity=be.severity,
+                confidence=be.confidence,
+                bbox=be.bbox_xyxy,
+                frame=frame,
+                camera_id=camera_id,
+                timestamp_sec=ts,
+                metadata=be.metadata,
+            )
+            if evt:
+                generated_events.append(evt)
+
         # 7. Draw Visual Annotations
         annotated = frame.copy()
         annotated = VirtualFence.draw_zones(annotated, self.fence.zones)
@@ -425,6 +453,7 @@ class VideoPipeline:
             face_matches=face_matches,
             plate_matches=plate_matches,
             weapon_detections=weapon_detections,
+            behavior_events=behavior_events,
             generated_events=generated_events,
             completed_intrusions=completed_intrusions,
             annotated_frame=annotated,
@@ -436,6 +465,8 @@ class VideoPipeline:
         """Dynamically update virtual fence zones and loitering detector."""
         self.fence.update_zones(zones)
         self.loitering.zones = self.fence.zones
+        zone_dicts = [{"name": z.get("name", ""), "polygon": z.get("polygon", []), "severity": z.get("severity", "medium")} for z in zones]
+        self.behavior_analytics.update_zones(zone_dicts)
 
     def reset(self) -> None:
         """Reset internal pipeline states."""
@@ -443,6 +474,7 @@ class VideoPipeline:
         self.fence.reset()
         self.loitering.reset()
         self.event_engine.reset()
+        self.behavior_analytics.reset()
         self._camera_entry_times.clear()
         self._intrusion_sessions.clear()
         self._face_sessions.clear()

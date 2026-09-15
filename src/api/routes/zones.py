@@ -8,7 +8,6 @@ Synchronizes dynamically with the AI VideoPipeline virtual fence.
 from __future__ import annotations
 
 from typing import Any, Optional
-import aiosqlite
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
@@ -29,7 +28,7 @@ class ZoneCreateRequest(BaseModel):
 class ZoneResponse(BaseModel):
     id: int
     name: str
-    camera_id: str
+    camera_id: str = Field("all", description="camera_id or 'all'")
     polygon: list[list[int]]
     severity: str
     created_at: Optional[str] = None
@@ -38,7 +37,7 @@ class ZoneResponse(BaseModel):
 @router.get("", response_model=list[ZoneResponse])
 async def list_zones(
     camera_id: Optional[str] = None,
-    db: aiosqlite.Connection = Depends(get_db),
+    db=Depends(get_db),
 ) -> list[dict[str, Any]]:
     """Fetch all configured restricted zones."""
     return await get_fence_zones(db, camera_id=camera_id)
@@ -47,14 +46,14 @@ async def list_zones(
 @router.post("", response_model=ZoneResponse)
 async def add_or_update_zone(
     payload: ZoneCreateRequest,
-    db: aiosqlite.Connection = Depends(get_db),
+    db=Depends(get_db),
 ) -> dict[str, Any]:
     """Create or update a restricted polygon zone and reload active pipeline fence."""
     if len(payload.polygon) < 3:
         raise HTTPException(status_code=400, detail="Polygon must have at least 3 vertices")
 
     zone = await create_fence_zone(
-        db=db,
+        db,
         name=payload.name,
         polygon=payload.polygon,
         severity=payload.severity.lower(),
@@ -75,7 +74,7 @@ async def add_or_update_zone(
 @router.delete("/{zone_id}")
 async def remove_zone(
     zone_id: int,
-    db: aiosqlite.Connection = Depends(get_db),
+    db=Depends(get_db),
 ) -> dict[str, bool]:
     """Delete a restricted zone and refresh active pipeline fence."""
     success = await delete_fence_zone(db, zone_id)
