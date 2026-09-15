@@ -32,6 +32,7 @@ face:
 weapon_detection:
   enabled: true
   model_path: models/weapon_detector.pt
+<<<<<<< HEAD
   confidence: 0.35
   iou_threshold: 0.45
   img_size: 1024
@@ -41,6 +42,27 @@ weapon_detection:
   - blunt_weapon
   - explosive
   - fire_smoke
+=======
+  confidence: 0.45
+  iou_threshold: 0.45
+  img_size: 640
+  weapon_labels:
+  - gun
+  - pistol
+  - rifle
+  - assault_rifle
+  - sniper_rifle
+  - submachine_gun
+  - machine_gun
+  - rocket_launcher
+  - rocketlauncher
+  - rpg
+  - missile_launcher
+  - mortar
+  - grenade
+  - knife
+  - military_weapon
+>>>>>>> 0619cfbfff345fe95b563eca2cf9d8abeaf856ea
 events:
   cooldown_seconds: 30
   evidence_path: data/evidence

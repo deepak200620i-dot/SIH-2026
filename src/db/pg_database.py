@@ -205,8 +205,37 @@ async def seed_admin_user() -> None:
 
 
 async def seed_default_cameras() -> None:
+<<<<<<< HEAD
     """No-op: default demo cameras are disabled so user starts with clean state."""
     pass
+=======
+    """Seed default cameras if cameras table is empty."""
+    if _pool is None:
+        return
+
+    async with _pool.acquire() as conn:
+        count = await conn.fetchval("SELECT COUNT(*) FROM cameras")
+        if count == 0:
+            cameras = [
+                ("cam_01", "Border Gate Alpha (North)", "data/videos/test.mp4", "active"),
+                ("cam_02", "Perimeter Fence East", "data/videos/perimeter.mp4", "active"),
+                ("cam_03", "Vehicle Checkpoint South", "data/videos/checkpoint.mp4", "active"),
+                ("cam_04", "Watchtower West", "data/videos/watchtower.mp4", "active"),
+            ]
+            for cam_id, name, source, status in cameras:
+                await conn.execute(
+                    """
+                    INSERT INTO cameras (id, name, source, status)
+                    VALUES ($1, $2, $3, $4)
+                    ON CONFLICT (id) DO NOTHING
+                    """,
+                    cam_id,
+                    name,
+                    source,
+                    status,
+                )
+            print("[DB] Seeded default cameras.")
+>>>>>>> 0619cfbfff345fe95b563eca2cf9d8abeaf856ea
 
 
 def get_db_pool() -> asyncpg.Pool:

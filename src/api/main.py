@@ -34,7 +34,11 @@ from src.api.routes.auth import router as auth_router
 from src.api.routes.security import router as security_router
 from src.api.routes.evidence import router as evidence_router
 from src.db.crud import get_event_stats
+<<<<<<< HEAD
 from src.db.database import close_db, get_db, init_db, seed_admin_user
+=======
+from src.db.database import close_db, get_db, init_db, seed_admin_user, seed_default_cameras
+>>>>>>> 0619cfbfff345fe95b563eca2cf9d8abeaf856ea
 
 
 @asynccontextmanager
@@ -50,8 +54,14 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     # Initialize PostgreSQL database schema
     await init_db()
 
+<<<<<<< HEAD
     # Seed admin user
     await seed_admin_user()
+=======
+    # Seed admin user and default cameras
+    await seed_admin_user()
+    await seed_default_cameras()
+>>>>>>> 0619cfbfff345fe95b563eca2cf9d8abeaf856ea
 
     # Load any saved fence zones into pipeline
     try:
