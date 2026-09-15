@@ -83,3 +83,19 @@ cameras:
   default_camera_id: cam_01
   default_camera_name: Border Gate Alpha
   default_camera_source: data/videos/test.mp4
+behavior_analytics:
+  direction_enabled: true
+  min_displacement_px: 30
+  angle_tolerance_deg: 45
+  zone_permitted_directions: {}
+  repeated_entry_enabled: true
+  max_entries: 3
+  entry_window_minutes: 30
+  crowding_enabled: true
+  max_persons_per_zone: 5
+  rapid_movement_enabled: true
+  max_speed_px_per_sec: 200
+  abnormal_dwell_enabled: true
+  excessive_dwell_multiplier: 3.0
+  base_dwell_seconds: 60
+  cooldown_seconds: 30.0

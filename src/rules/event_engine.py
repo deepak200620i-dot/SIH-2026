@@ -50,6 +50,8 @@ class Event:
     status: str = "ACTIVE"
     id: Optional[int] = None
     created_at: Optional[str] = None
+    evidence_sha256: Optional[str] = None  # SHA-256 of evidence file
+    integrity_status: str = "PENDING"      # PENDING, VERIFIED, FAILED
 
     def to_dict(self) -> dict[str, Any]:
         """Convert event dataclass to dictionary."""
@@ -227,6 +229,15 @@ class EventEngine:
             frame, event_type, now_dt, bbox=bbox_list, label=label
         )
 
+        # Compute SHA-256 of the evidence snapshot for integrity
+        evidence_hash = None
+        if snapshot_path:
+            try:
+                from src.security.integrity import hash_evidence
+                evidence_hash = hash_evidence(snapshot_path)
+            except Exception as e:
+                print(f"[EVENT] Failed to hash evidence: {e}")
+
         return Event(
             timestamp=now_dt.isoformat(),
             event_type=event_type,
@@ -241,6 +252,8 @@ class EventEngine:
             bbox=bbox_list,
             snapshot=snapshot_path,
             metadata=metadata,
+            evidence_sha256=evidence_hash,
+            integrity_status="VERIFIED" if evidence_hash else "PENDING",
         )
 
     def reset(self) -> None:

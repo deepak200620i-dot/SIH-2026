@@ -62,6 +62,9 @@ export const ANPR: React.FC = () => {
                     src={event.vehicleImageUrl}
                     alt="Vehicle"
                     className="w-full h-full object-cover"
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).src = "/favicon.svg";
+                    }}
                   />
                 </div>
 
