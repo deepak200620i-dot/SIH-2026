@@ -511,21 +511,10 @@ export const apiGetFaceEvents = async (
 ): Promise<PaginatedResponse<FaceEvent>> => {
   try {
     const offset = (page - 1) * pageSize;
-    const res = await authFetch(`${API_BASE}/api/events?limit=${pageSize}&offset=${offset}`);
+    const res = await authFetch(`${API_BASE}/api/events?event_types=face_match,face_unknown&limit=${pageSize}&offset=${offset}`);
     if (res.ok) {
       const data = await res.json();
-      const seen = new Set<string>();
-      const faceEvts = (data.items || []).filter((e: any) => {
-        if (!["face_match", "face_unknown"].includes(e.event_type)) return false;
-        // New events have a stable ReID track. Legacy webcam rows are grouped
-        // within a short camera session so old duplicate history remains usable.
-        const identity = e.metadata?.person_identity || e.track_id;
-        const bucket = Math.floor(new Date(e.timestamp).getTime() / 120000);
-        const key = identity && identity !== "unknown" ? `${e.camera_id}:${identity}` : `${e.camera_id}:unknown:${bucket}`;
-        if (seen.has(key)) return false;
-        seen.add(key);
-        return true;
-      });
+      const faceEvts = data.items || [];
       const items = faceEvts.map((e: any) => ({
         id: String(e.id),
         cameraId: e.camera_id || "cam_01",
@@ -537,12 +526,13 @@ export const apiGetFaceEvents = async (
         confidence: e.confidence ? Math.round(e.confidence * 100) : 90,
         timeUnderCameraSeconds: typeof e.metadata?.time_under_camera_seconds === "number" ? Math.floor(e.metadata.time_under_camera_seconds) : undefined,
       }));
+      const total = typeof data.total === "number" ? data.total : items.length;
       return {
         items,
-        total: items.length,
+        total,
         page,
         pageSize,
-        hasMore: offset + pageSize < items.length,
+        hasMore: offset + items.length < total,
       };
     }
   } catch (err) {}
@@ -563,10 +553,10 @@ export const apiGetANPREvents = async (
 ): Promise<PaginatedResponse<ANPREvent>> => {
   try {
     const offset = (page - 1) * pageSize;
-    const res = await fetch(`${API_BASE}/api/events?limit=${pageSize}&offset=${offset}`);
+    const res = await fetch(`${API_BASE}/api/events?event_type=anpr&limit=${pageSize}&offset=${offset}`);
     if (res.ok) {
       const data = await res.json();
-      const anprEvts = (data.items || []).filter((e: any) => e.event_type === "anpr");
+      const anprEvts = data.items || [];
       const items = anprEvts.map((e: any) => ({
         id: String(e.id),
         cameraId: e.camera_id || "cam_03",
@@ -577,12 +567,13 @@ export const apiGetANPREvents = async (
         ocrConfidence: e.confidence ? Math.round(e.confidence * 100) : 95,
         status: "AUTHORIZED" as const,
       }));
+      const total = typeof data.total === "number" ? data.total : items.length;
       return {
         items,
-        total: items.length,
+        total,
         page,
         pageSize,
-        hasMore: offset + pageSize < items.length,
+        hasMore: offset + items.length < total,
       };
     }
   } catch (err) {}
@@ -744,56 +735,27 @@ export const apiGetSystemStatus = async (): Promise<SystemStatus> => {
 };
 
 // ============ ANALYTICS ============
-export const apiGetAnalytics = async (): Promise<AnalyticsData> => {
+export const apiGetAnalytics = async (timeRange: string = "24h"): Promise<AnalyticsData> => {
   try {
-    const res = await fetch(`${API_BASE}/api/events?limit=100`);
+    const res = await authFetch(`${API_BASE}/api/events/analytics?range=${encodeURIComponent(timeRange)}`);
     if (res.ok) {
       const data = await res.json();
-      const events: any[] = data.items || [];
-      const now = new Date();
-      const hourlyBuckets = Array.from({ length: 24 }, (_, index) => {
-        const date = new Date(now);
-        date.setMinutes(0, 0, 0);
-        date.setHours(date.getHours() - (23 - index));
-        return { key: date.getTime(), label: `${String(date.getHours()).padStart(2, "0")}:00`, count: 0 };
-      });
-      const detectionsByHour = hourlyBuckets.map((bucket) => ({ ...bucket }));
-      const bucketFor = (timestamp: string) => {
-        const value = new Date(timestamp).getTime();
-        return hourlyBuckets.findIndex((bucket, index) => value >= bucket.key && (index === hourlyBuckets.length - 1 || value < hourlyBuckets[index + 1].key));
-      };
-
-      // Group by camera
-      const camMap: Record<string, number> = {};
-      const typeMap: Record<string, number> = {};
-
-      events.forEach((e) => {
-        const bucketIndex = bucketFor(e.timestamp);
-        if (bucketIndex >= 0) {
-          hourlyBuckets[bucketIndex].count += 1;
-          if (e.class_name === "person" || String(e.event_type).includes("person") || String(e.event_type).includes("face")) detectionsByHour[bucketIndex].count += 1;
-        }
-        const cam = e.camera_id || "cam_01";
-        camMap[cam] = (camMap[cam] || 0) + 1;
-
-        const t = mapEventType(e.event_type);
-        typeMap[t] = (typeMap[t] || 0) + 1;
-      });
-
-      const intrusionsByCamera = Object.entries(camMap).map(([camera, count]) => ({ camera, count }));
-      const eventDistribution = Object.entries(typeMap).map(([type, count]) => ({ type: type as EventType, count }));
-
       return {
-        alertsTrend: hourlyBuckets.map(({ label, count }) => ({ timestamp: label, count })),
-        intrusionsByCamera,
-        unknownFacesTrend: hourlyBuckets.map(({ label, count }) => ({ timestamp: label, count })),
-        vehicleDetections: [],
-        personDetections: detectionsByHour.map(({ label, count }) => ({ timestamp: label, count })),
-        eventDistribution,
-        cameraActivity: intrusionsByCamera.map((i) => ({ camera: i.camera, events: i.count })),
+        alertsTrend: data.alertsTrend || [],
+        intrusionsByCamera: data.intrusionsByCamera || [],
+        unknownFacesTrend: data.unknownFacesTrend || [],
+        vehicleDetections: data.vehicleDetections || [],
+        personDetections: data.personDetections || [],
+        eventDistribution: (data.eventDistribution || []).map((d: any) => ({
+          type: (d.type as EventType) || "INTRUSION",
+          count: Number(d.count) || 0,
+        })),
+        cameraActivity: data.cameraActivity || [],
       };
     }
-  } catch (err) {}
+  } catch (err) {
+    console.error("Failed to fetch analytics:", err);
+  }
 
   return {
     alertsTrend: [],

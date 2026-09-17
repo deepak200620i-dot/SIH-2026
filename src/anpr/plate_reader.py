@@ -21,7 +21,25 @@ import numpy as np
 
 # Standard license plate regex (e.g. Indian plates: MH12AB1234 or DL01C1234, or general alphanumeric 5-10 chars)
 INDIAN_PLATE_REGEX = re.compile(r"^[A-Z]{2}[0-9]{2}[A-Z]{1,2}[0-9]{4}$")
+BH_PLATE_REGEX = re.compile(r"^[0-9]{2}BH[0-9]{4}[A-Z]{1,2}$")
 GENERAL_PLATE_REGEX = re.compile(r"^[A-Z0-9]{5,10}$")
+
+# Positional substitution maps for OCR error correction
+DIGIT_TO_LETTER = {
+    "0": "O", "1": "I", "2": "Z", "3": "J", "4": "A",
+    "5": "S", "6": "G", "7": "T", "8": "B", "9": "P",
+}
+
+LETTER_TO_DIGIT = {
+    "O": "0", "D": "0", "Q": "0", "U": "0",
+    "I": "1", "L": "1", "T": "1",
+    "Z": "2",
+    "J": "3", "E": "3",
+    "A": "4",
+    "S": "5",
+    "G": "6", "C": "6",
+    "B": "8",
+}
 
 
 @dataclass
@@ -39,6 +57,7 @@ class PlateMatch:
 class PlateReader:
     """
     ANPR engine wrapping EasyOCR for license plate reading from vehicle crops.
+    Includes contrast enhancement, region focusing, and positional OCR correction.
     """
 
     DEFAULT_VEHICLE_CLASSES = {"car", "truck", "bus", "motorcycle"}
@@ -48,13 +67,14 @@ class PlateReader:
         anpr_cfg = cfg.get("anpr", {})
 
         self.languages: list[str] = anpr_cfg.get("languages", ["en"])
-        self.min_confidence: float = float(anpr_cfg.get("min_confidence", 0.4))
+        self.min_confidence: float = float(anpr_cfg.get("min_confidence", 0.35))
         self.vehicle_classes: set[str] = set(
             anpr_cfg.get("vehicle_classes", self.DEFAULT_VEHICLE_CLASSES)
         )
         self.gpu: bool = bool(anpr_cfg.get("gpu", False))
 
         self._reader: Any = None
+        self._track_cache: dict[int, PlateMatch] = {}
 
     def _load_reader(self) -> None:
         """Lazy loader for EasyOCR Reader."""
@@ -72,7 +92,6 @@ class PlateReader:
         """Clean OCR text by removing non-alphanumeric characters and converting to uppercase."""
         if not raw_text:
             return ""
-        # Remove symbols, keep uppercase A-Z and digits 0-9
         cleaned = re.sub(r"[^A-Za-z0-9]", "", raw_text).upper()
         return cleaned
 
@@ -84,10 +103,72 @@ class PlateReader:
 
         if INDIAN_PLATE_REGEX.match(plate_text):
             return True
+        if BH_PLATE_REGEX.match(plate_text):
+            return True
         if GENERAL_PLATE_REGEX.match(plate_text):
             return True
 
         return False
+
+    @classmethod
+    def correct_plate_format(cls, text: str) -> str:
+        """
+        Apply positional character correction based on standard plate structure.
+        Standard 10-char: LL DD LL DDDD (e.g. MH12AB1234)
+        Standard 9-char:  LL DD L DDDD  (e.g. DL01C1234)
+        Standard 8-char:  LL DD DDDD    (e.g. DL011234)
+        """
+        if not text or len(text) < 7 or len(text) > 11:
+            return text
+
+        chars = list(text)
+        n = len(chars)
+
+        if n == 10:
+            # LL DD LL DDDD
+            chars[0] = DIGIT_TO_LETTER.get(chars[0], chars[0])
+            chars[1] = DIGIT_TO_LETTER.get(chars[1], chars[1])
+            chars[2] = LETTER_TO_DIGIT.get(chars[2], chars[2])
+            chars[3] = LETTER_TO_DIGIT.get(chars[3], chars[3])
+            chars[4] = DIGIT_TO_LETTER.get(chars[4], chars[4])
+            chars[5] = DIGIT_TO_LETTER.get(chars[5], chars[5])
+            for i in range(6, 10):
+                chars[i] = LETTER_TO_DIGIT.get(chars[i], chars[i])
+        elif n == 9:
+            # LL DD L DDDD
+            chars[0] = DIGIT_TO_LETTER.get(chars[0], chars[0])
+            chars[1] = DIGIT_TO_LETTER.get(chars[1], chars[1])
+            chars[2] = LETTER_TO_DIGIT.get(chars[2], chars[2])
+            chars[3] = LETTER_TO_DIGIT.get(chars[3], chars[3])
+            chars[4] = DIGIT_TO_LETTER.get(chars[4], chars[4])
+            for i in range(5, 9):
+                chars[i] = LETTER_TO_DIGIT.get(chars[i], chars[i])
+        elif n == 8:
+            # LL DD DDDD
+            chars[0] = DIGIT_TO_LETTER.get(chars[0], chars[0])
+            chars[1] = DIGIT_TO_LETTER.get(chars[1], chars[1])
+            for i in range(2, 8):
+                chars[i] = LETTER_TO_DIGIT.get(chars[i], chars[i])
+
+        candidate = "".join(chars)
+        if cls.is_valid_plate(candidate):
+            return candidate
+        return text
+
+    @staticmethod
+    def preprocess_plate_image(image: np.ndarray) -> np.ndarray:
+        """
+        Enhance plate contrast and clarity for OCR using grayscale, CLAHE, and bilateral filtering.
+        """
+        if len(image.shape) == 3:
+            gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+        else:
+            gray = image.copy()
+
+        clahe = cv2.createCLAHE(clipLimit=2.5, tileGridSize=(8, 8))
+        contrast = clahe.apply(gray)
+        filtered = cv2.bilateralFilter(contrast, 7, 50, 50)
+        return filtered
 
     def read_plate(
         self,
@@ -97,7 +178,7 @@ class PlateReader:
         class_name: str = "car",
     ) -> PlateMatch | None:
         """
-        Crop vehicle region from frame and extract license plate text.
+        Crop vehicle region from frame, focus on plate zone, preprocess, and extract plate text.
         """
         h, w = frame.shape[:2]
         x1, y1, x2, y2 = vehicle_bbox
@@ -105,41 +186,85 @@ class PlateReader:
         x1_c, y1_c = max(0, x1), max(0, y1)
         x2_c, y2_c = min(w, x2), min(h, y2)
 
-        if (x2_c - x1_c) < 30 or (y2_c - y1_c) < 30:
+        vh = y2_c - y1_c
+        vw = x2_c - x1_c
+        if vw < 30 or vh < 30:
             return None
 
-        vehicle_crop = frame[y1_c:y2_c, x1_c:x2_c]
-        if vehicle_crop.size == 0:
-            return None
+        # Vehicle plates reside in the lower 60% of vehicle bounding boxes
+        lower_y1 = y1_c + int(vh * 0.35)
+        lower_crop = frame[lower_y1:y2_c, x1_c:x2_c]
+        if lower_crop.size == 0:
+            lower_crop = frame[y1_c:y2_c, x1_c:x2_c]
+            lower_y1 = y1_c
 
         self._load_reader()
-        results = self._reader.readtext(vehicle_crop)
+
+        # Run OCR on both preprocessed and raw crops for best candidate extraction
+        crops_to_try = [
+            (self.preprocess_plate_image(lower_crop), lower_y1, x1_c),
+            (lower_crop, lower_y1, x1_c),
+        ]
 
         best_match: PlateMatch | None = None
-        best_conf = 0.0
+        best_score = 0.0
 
-        for bbox_coords, raw_text, conf in results:
-            cleaned = self.clean_text(raw_text)
-            if conf >= self.min_confidence and self.is_valid_plate(cleaned):
-                if conf > best_conf:
-                    best_conf = float(conf)
+        for crop_img, crop_top, crop_left in crops_to_try:
+            try:
+                results = self._reader.readtext(
+                    crop_img,
+                    allowlist="ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789",
+                    detail=1,
+                )
+            except Exception:
+                continue
 
-                    # Convert crop-relative bbox to full frame bbox if available
+            for bbox_coords, raw_text, conf in results:
+                cleaned = self.clean_text(raw_text)
+                corrected = self.correct_plate_format(cleaned)
+
+                candidate = corrected if self.is_valid_plate(corrected) else cleaned
+                if not self.is_valid_plate(candidate) or conf < self.min_confidence:
+                    continue
+
+                # Bonus score if it matches the strict Indian / BH plate format
+                is_standard = bool(INDIAN_PLATE_REGEX.match(candidate) or BH_PLATE_REGEX.match(candidate))
+                score = float(conf) + (0.35 if is_standard else 0.0)
+
+                if score > best_score:
+                    best_score = score
                     plate_bbox = None
                     if bbox_coords and len(bbox_coords) == 4:
                         pts = np.array(bbox_coords, dtype=np.int32)
-                        px1, py1 = pts[:, 0].min() + x1_c, pts[:, 1].min() + y1_c
-                        px2, py2 = pts[:, 0].max() + x1_c, pts[:, 1].max() + y1_c
+                        px1 = pts[:, 0].min() + crop_left
+                        py1 = pts[:, 1].min() + crop_top
+                        px2 = pts[:, 0].max() + crop_left
+                        py2 = pts[:, 1].max() + crop_top
                         plate_bbox = (int(px1), int(py1), int(px2), int(py2))
 
                     best_match = PlateMatch(
-                        plate_text=cleaned,
-                        confidence=best_conf,
+                        plate_text=candidate,
+                        confidence=round(float(conf), 4),
                         vehicle_track_id=track_id,
                         vehicle_bbox=(x1, y1, x2, y2),
                         plate_bbox=plate_bbox,
                         class_name=class_name,
                     )
+
+        # Track-based stabilization: if current read is weak or empty, fallback to cached
+        if track_id >= 0:
+            if best_match and best_match.confidence >= 0.50:
+                self._track_cache[track_id] = best_match
+            elif not best_match and track_id in self._track_cache:
+                cached = self._track_cache[track_id]
+                best_match = PlateMatch(
+                    plate_text=cached.plate_text,
+                    confidence=cached.confidence,
+                    vehicle_track_id=track_id,
+                    vehicle_bbox=(x1, y1, x2, y2),
+                    plate_bbox=cached.plate_bbox,
+                    class_name=class_name,
+                )
 
         return best_match
 
@@ -162,6 +287,10 @@ class PlateReader:
                     if match:
                         matches.append(match)
         return matches
+
+    def reset(self) -> None:
+        """Clear cached track plate associations."""
+        self._track_cache.clear()
 
     @staticmethod
     def draw_plate_matches(

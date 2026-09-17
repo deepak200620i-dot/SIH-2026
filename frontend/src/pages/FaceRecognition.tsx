@@ -8,15 +8,18 @@ import { Users } from "lucide-react";
 
 export const FaceRecognition: React.FC = () => {
   const [faceEvents, setFaceEvents] = useState<FaceEvent[]>([]);
+  const [totalEvents, setTotalEvents] = useState(0);
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
+  const pageSize = 12;
 
   useEffect(() => {
     const loadFaceEvents = async () => {
       try {
         setLoading(true);
-        const data = await apiGetFaceEvents(page, 12);
+        const data = await apiGetFaceEvents(page, pageSize);
         setFaceEvents(data.items || []);
+        setTotalEvents(data.total || (data.items || []).length);
       } catch (error) {
         console.error("Failed to load face events:", error);
       } finally {
@@ -27,18 +30,19 @@ export const FaceRecognition: React.FC = () => {
     loadFaceEvents();
   }, [page]);
 
-  if (loading) {
+  if (loading && faceEvents.length === 0) {
     return <LoadingSpinner />;
   }
 
   const unknownCount = faceEvents.filter((f) => f.matchStatus === "UNKNOWN").length;
+  const totalPages = Math.max(1, Math.ceil(totalEvents / pageSize));
 
   return (
     <div className="p-6 space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-white text-2xl font-bold">Face Recognition</h1>
         <div className="text-right">
-          <p className="text-gray-400 text-sm">Unknown Faces</p>
+          <p className="text-gray-400 text-sm">Unknown Faces (Total: {totalEvents})</p>
           <p className="text-red-400 text-2xl font-bold">{unknownCount}</p>
         </div>
       </div>
@@ -99,16 +103,18 @@ export const FaceRecognition: React.FC = () => {
           <div className="flex items-center justify-between">
             <button
               onClick={() => setPage((p) => Math.max(1, p - 1))}
-              disabled={page === 1}
-              className="px-4 py-2 bg-gray-800 text-white rounded disabled:opacity-50"
+              disabled={page <= 1}
+              className="px-4 py-2 bg-gray-800 text-white rounded disabled:opacity-50 hover:bg-gray-700 transition"
             >
               Previous
             </button>
-            <span className="text-gray-400">Page {page}</span>
+            <span className="text-gray-400">
+              Page {page} of {totalPages} ({totalEvents} total)
+            </span>
             <button
-              onClick={() => setPage((p) => p + 1)}
-              disabled={faceEvents.length < 12}
-              className="px-4 py-2 bg-gray-800 text-white rounded disabled:opacity-50"
+              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+              disabled={page >= totalPages}
+              className="px-4 py-2 bg-gray-800 text-white rounded disabled:opacity-50 hover:bg-gray-700 transition"
             >
               Next
             </button>

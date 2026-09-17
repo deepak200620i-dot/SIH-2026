@@ -114,6 +114,7 @@ async def get_events(
     limit: int = 20,
     offset: int = 0,
     event_type: Optional[str] = None,
+    event_types: Optional[list[str] | str] = None,
     severity: Optional[str] = None,
     camera_id: Optional[str] = None,
 ) -> dict[str, Any]:
@@ -122,10 +123,26 @@ async def get_events(
     params: list[Any] = []
     idx = 1
 
-    if event_type:
-        conditions.append(f"event_type = ${idx}")
-        params.append(event_type)
-        idx += 1
+    # Support single event_type or multiple event_types (comma-separated or list)
+    types_list: list[str] = []
+    if event_types:
+        if isinstance(event_types, list):
+            types_list = [t.strip() for t in event_types if t.strip()]
+        elif isinstance(event_types, str):
+            types_list = [t.strip() for t in event_types.split(",") if t.strip()]
+    elif event_type:
+        types_list = [t.strip() for t in event_type.split(",") if t.strip()]
+
+    if types_list:
+        if len(types_list) == 1:
+            conditions.append(f"event_type = ${idx}")
+            params.append(types_list[0])
+            idx += 1
+        else:
+            conditions.append(f"event_type = ANY(${idx}::varchar[])")
+            params.append(types_list)
+            idx += 1
+
     if severity:
         conditions.append(f"severity = ${idx}")
         params.append(severity)
@@ -189,6 +206,156 @@ async def get_event_stats(conn) -> dict[str, Any]:
         "active_cameras": active_cameras,
         "by_type": by_type,
         "by_severity": by_severity,
+    }
+
+
+async def get_analytics_data(conn, time_range: str = "24h") -> dict[str, Any]:
+    """
+    Aggregate analytics across the specified time range:
+    '24h', '7d', '30d', '1y', 'all'.
+    Returns {
+        alertsTrend, intrusionsByCamera, unknownFacesTrend,
+        vehicleDetections, personDetections, eventDistribution, cameraActivity
+    }
+    """
+    range_clean = (time_range or "24h").lower()
+
+    if range_clean == "7d":
+        where_time = "WHERE timestamp >= NOW() - INTERVAL '7 days'"
+        trunc = "day"
+        date_fmt = "YYYY-MM-DD"
+    elif range_clean == "30d":
+        where_time = "WHERE timestamp >= NOW() - INTERVAL '30 days'"
+        trunc = "day"
+        date_fmt = "YYYY-MM-DD"
+    elif range_clean == "1y":
+        where_time = "WHERE timestamp >= NOW() - INTERVAL '1 year'"
+        trunc = "month"
+        date_fmt = "YYYY-MM"
+    elif range_clean == "all":
+        where_time = ""
+        trunc = "day"
+        date_fmt = "YYYY-MM-DD"
+    else:  # default 24h
+        where_time = "WHERE timestamp >= NOW() - INTERVAL '24 hours'"
+        trunc = "hour"
+        date_fmt = "HH24:00"
+
+    # 1. Overall Alerts Trend
+    trend_query = f"""
+        SELECT to_char(date_trunc('{trunc}', timestamp), '{date_fmt}') as label,
+               date_trunc('{trunc}', timestamp) as bucket,
+               COUNT(*) as count
+        FROM events
+        {where_time}
+        GROUP BY bucket, label
+        ORDER BY bucket ASC
+    """
+    trend_rows = await conn.fetch(trend_query)
+    alerts_trend = [{"timestamp": r["label"], "count": int(r["count"])} for r in trend_rows]
+
+    # 2. Unknown Faces Trend
+    where_face = f"{where_time} AND event_type = 'face_unknown'" if where_time else "WHERE event_type = 'face_unknown'"
+    face_query = f"""
+        SELECT to_char(date_trunc('{trunc}', timestamp), '{date_fmt}') as label,
+               date_trunc('{trunc}', timestamp) as bucket,
+               COUNT(*) as count
+        FROM events
+        {where_face}
+        GROUP BY bucket, label
+        ORDER BY bucket ASC
+    """
+    face_rows = await conn.fetch(face_query)
+    unknown_faces_trend = [{"timestamp": r["label"], "count": int(r["count"])} for r in face_rows]
+
+    # 3. Person Detections Trend
+    where_person = f"{where_time} AND (event_type IN ('person_detected', 'face_match', 'face_unknown') OR class_name = 'person')" if where_time else "WHERE (event_type IN ('person_detected', 'face_match', 'face_unknown') OR class_name = 'person')"
+    person_query = f"""
+        SELECT to_char(date_trunc('{trunc}', timestamp), '{date_fmt}') as label,
+               date_trunc('{trunc}', timestamp) as bucket,
+               COUNT(*) as count
+        FROM events
+        {where_person}
+        GROUP BY bucket, label
+        ORDER BY bucket ASC
+    """
+    person_rows = await conn.fetch(person_query)
+    person_detections = [{"timestamp": r["label"], "count": int(r["count"])} for r in person_rows]
+
+    # 4. Vehicle / ANPR Detections Trend
+    where_veh = f"{where_time} AND (event_type IN ('vehicle_detected', 'anpr') OR class_name IN ('car', 'truck', 'bus', 'motorcycle'))" if where_time else "WHERE (event_type IN ('vehicle_detected', 'anpr') OR class_name IN ('car', 'truck', 'bus', 'motorcycle'))"
+    veh_query = f"""
+        SELECT to_char(date_trunc('{trunc}', timestamp), '{date_fmt}') as label,
+               date_trunc('{trunc}', timestamp) as bucket,
+               COUNT(*) as count
+        FROM events
+        {where_veh}
+        GROUP BY bucket, label
+        ORDER BY bucket ASC
+    """
+    veh_rows = await conn.fetch(veh_query)
+    vehicle_detections = [{"timestamp": r["label"], "count": int(r["count"])} for r in veh_rows]
+
+    # 5. Intrusions by Camera
+    where_intrusions = f"{where_time} AND event_type = 'intrusion'" if where_time else "WHERE event_type = 'intrusion'"
+    cam_intrusions_query = f"""
+        SELECT camera_id, COUNT(*) as count
+        FROM events
+        {where_intrusions}
+        GROUP BY camera_id
+        ORDER BY count DESC
+    """
+    cam_intrusions_rows = await conn.fetch(cam_intrusions_query)
+    intrusions_by_camera = [{"camera": r["camera_id"] or "cam_01", "count": int(r["count"])} for r in cam_intrusions_rows]
+
+    # 6. Camera Activity (all events by camera)
+    cam_act_query = f"""
+        SELECT camera_id, COUNT(*) as count
+        FROM events
+        {where_time}
+        GROUP BY camera_id
+        ORDER BY count DESC
+    """
+    cam_act_rows = await conn.fetch(cam_act_query)
+    camera_activity = [{"camera": r["camera_id"] or "cam_01", "events": int(r["count"])} for r in cam_act_rows]
+
+    # 7. Event Distribution by type
+    type_query = f"""
+        SELECT event_type, COUNT(*) as count
+        FROM events
+        {where_time}
+        GROUP BY event_type
+        ORDER BY count DESC
+    """
+    type_rows = await conn.fetch(type_query)
+    type_map = {
+        "intrusion": "INTRUSION",
+        "loitering": "LOITERING",
+        "face_match": "FACE_RECOGNIZED",
+        "face_unknown": "UNKNOWN_FACE",
+        "anpr": "ANPR_DETECTED",
+        "weapon_detected": "WEAPON_DETECTED",
+        "direction_violation": "DIRECTION_VIOLATION",
+        "crowding": "CROWDING",
+        "rapid_movement": "RAPID_MOVEMENT",
+        "abnormal_dwell": "ABNORMAL_DWELL",
+        "repeated_zone_entry": "REPEATED_ZONE_ENTRY",
+        "person_detected": "PERSON_DETECTED",
+        "vehicle_detected": "VEHICLE_DETECTED",
+    }
+    event_distribution = [
+        {"type": type_map.get(r["event_type"], r["event_type"].upper()), "count": int(r["count"])}
+        for r in type_rows
+    ]
+
+    return {
+        "alertsTrend": alerts_trend,
+        "intrusionsByCamera": intrusions_by_camera,
+        "unknownFacesTrend": unknown_faces_trend,
+        "vehicleDetections": vehicle_detections,
+        "personDetections": person_detections,
+        "eventDistribution": event_distribution,
+        "cameraActivity": camera_activity,
     }
 
 

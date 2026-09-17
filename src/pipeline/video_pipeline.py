@@ -116,11 +116,13 @@ class VideoPipeline:
 
     @staticmethod
     def _identity_id(match: FaceMatch) -> int:
-        """Use face re-identification, not a volatile tracker number, as identity."""
-        if not match.is_known and match.unknown_person_id is not None:
-            return match.unknown_person_id
+        """Use face re-identification for known faces, or preserve tracked object ID."""
         if match.is_known:
             return zlib.crc32(match.name.encode("utf-8")) % 2_000_000_000
+        if match.person_track_id >= 0:
+            return match.person_track_id
+        if match.unknown_person_id is not None:
+            return match.unknown_person_id
         return match.person_track_id
 
     def register_session_event(self, session_key: str, event_id: int) -> None:
@@ -163,7 +165,7 @@ class VideoPipeline:
         weapon_detections = self.weapon_detector.detect(frame)
 
         # 2. Virtual Fence Intrusion
-        fence_events = self.fence.check(tracked_objects, timestamp=ts)
+        fence_events = self.fence.check(tracked_objects, timestamp=ts, camera_id=camera_id)
 
         # 3. Loitering Detection
         loitering_events = self.loitering.check(tracked_objects, timestamp=ts)
@@ -246,7 +248,7 @@ class VideoPipeline:
             stable_id = stable_ids.get(obj.track_id, obj.track_id)
             if stable_id < 0:
                 continue
-            for zone in self.fence.zones:
+            for zone in self.fence.get_zones_for_camera(camera_id):
                 if VirtualFence.is_inside(obj.center, zone.np_polygon):
                     key = (camera_id, stable_id, zone.name)
                     active_intrusions.add(key)
@@ -429,7 +431,7 @@ class VideoPipeline:
 
         # 7. Draw Visual Annotations
         annotated = frame.copy()
-        annotated = VirtualFence.draw_zones(annotated, self.fence.zones)
+        annotated = VirtualFence.draw_zones(annotated, self.fence.zones, camera_id=camera_id)
         annotated = Tracker.draw_tracks(annotated, tracked_objects)
 
         if weapon_detections:
@@ -480,3 +482,5 @@ class VideoPipeline:
         self._face_sessions.clear()
         if self.face_recognizer:
             self.face_recognizer.reset()
+        if self.plate_reader:
+            self.plate_reader.reset()

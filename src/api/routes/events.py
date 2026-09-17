@@ -13,7 +13,7 @@ from typing import Any, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query, WebSocket, WebSocketDisconnect
 
 from src.api.models import EventCreate, EventListResponse, EventResponse, EventStatusUpdate, StatsResponse
-from src.db.crud import create_event, get_event, get_events, get_event_stats, update_event_status
+from src.db.crud import create_event, get_analytics_data, get_event, get_events, get_event_stats, update_event_status
 from src.db.database import get_db
 from src.rules.event_engine import Event
 
@@ -56,6 +56,7 @@ async def list_events(
     limit: int = Query(50, ge=1, le=200),
     offset: int = Query(0, ge=0),
     event_type: Optional[str] = Query(None, description="Filter by event type"),
+    event_types: Optional[str] = Query(None, description="Filter by comma-separated event types"),
     severity: Optional[str] = Query(None, description="Filter by severity level"),
     camera_id: Optional[str] = Query(None, description="Filter by camera ID"),
     db=Depends(get_db),
@@ -66,12 +67,22 @@ async def list_events(
         limit=limit,
         offset=offset,
         event_type=event_type,
+        event_types=event_types,
         severity=severity,
         camera_id=camera_id,
     )
     return EventListResponse(
         items=result["items"], total=result["total"], limit=limit, offset=offset
     )
+
+
+@router.get("/analytics")
+async def fetch_analytics(
+    range: str = Query("24h", description="Time range: 24h, 7d, 30d, 1y, all"),
+    db=Depends(get_db),
+) -> dict[str, Any]:
+    """Get aggregated analytics metrics across custom time ranges."""
+    return await get_analytics_data(db, time_range=range)
 
 
 @router.get("/stats", response_model=StatsResponse)

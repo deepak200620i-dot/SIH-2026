@@ -30,6 +30,7 @@ class FenceZone:
     name: str                          # Human-readable zone name
     polygon: list[list[int]]           # [[x1,y1], [x2,y2], ...] vertices
     severity: str = "high"             # "low", "medium", "high", "critical"
+    camera_id: str = "all"             # Scoped camera ID or "all"
 
     @property
     def np_polygon(self) -> np.ndarray:
@@ -93,13 +94,14 @@ class VirtualFence:
                 name=z["name"],
                 polygon=z["polygon"],
                 severity=z.get("severity", "high"),
+                camera_id=z.get("camera_id", "all"),
             ))
 
         self.cooldown_seconds = cooldown_seconds
 
-        # Debounce state: (track_id, zone_name) → last alert timestamp
-        self._last_alert: dict[tuple[int, str], float] = {}
-        self._active_inside: set[tuple[int, str]] = set()
+        # Debounce state: (camera_id, track_id, zone_name) → last alert timestamp
+        self._last_alert: dict[tuple[str, int, str], float] = {}
+        self._active_inside: set[tuple[str, int, str]] = set()
 
     def update_zones(self, zones: list[dict[str, Any]]) -> None:
         """Update active fence zones dynamically."""
@@ -109,8 +111,13 @@ class VirtualFence:
                 name=z["name"],
                 polygon=z["polygon"],
                 severity=z.get("severity", "high"),
+                camera_id=z.get("camera_id", "all"),
             ))
         self.zones = new_zones
+
+    def get_zones_for_camera(self, camera_id: str) -> list[FenceZone]:
+        """Get zones that apply to a specific camera (or all cameras)."""
+        return [z for z in self.zones if z.camera_id in ("all", camera_id)]
 
     # ── Core algorithm ───────────────────────────────────────────────────
 
@@ -135,7 +142,7 @@ class VirtualFence:
         )
         return result >= 0
 
-    def _should_alert(self, key: tuple[int, str], timestamp: float) -> bool:
+    def _should_alert(self, key: tuple[str, int, str], timestamp: float) -> bool:
         """Check if enough time has passed since the last alert for this key."""
         if key not in self._last_alert:
             return True
@@ -148,9 +155,10 @@ class VirtualFence:
         self,
         tracked_objects: list,
         timestamp: float | None = None,
+        camera_id: str = "cam_01",
     ) -> list[FenceEvent]:
         """
-        Check all tracked objects against all fence zones.
+        Check all tracked objects against fence zones matching the given camera_id.
 
         Parameters
         ----------
@@ -159,6 +167,8 @@ class VirtualFence:
             ``.track_id``, ``.class_name``, ``.confidence``, ``.bbox_xyxy``.
         timestamp : float, optional
             Current time (seconds).  Defaults to ``time.time()``.
+        camera_id : str, optional
+            Camera ID to filter relevant zones. Defaults to "cam_01".
 
         Returns
         -------
@@ -169,14 +179,18 @@ class VirtualFence:
             timestamp = time.time()
 
         events: list[FenceEvent] = []
-        active_inside: set[tuple[int, str]] = set()
+        applicable_zones = self.get_zones_for_camera(camera_id)
+        if not applicable_zones:
+            return []
+
+        active_inside: set[tuple[str, int, str]] = set()
 
         for obj in tracked_objects:
             center = obj.center
 
-            for zone in self.zones:
+            for zone in applicable_zones:
                 if self.is_inside(center, zone.np_polygon):
-                    key = (obj.track_id, zone.name)
+                    key = (camera_id, obj.track_id, zone.name)
                     active_inside.add(key)
 
                     # One intrusion means one zone entry. A new event is only
@@ -210,22 +224,17 @@ class VirtualFence:
         frame: np.ndarray,
         zones: list[FenceZone],
         alpha: float = 0.25,
+        camera_id: str | None = None,
     ) -> np.ndarray:
         """
         Draw semi-transparent polygon overlays for each zone (returns a copy).
 
         Zones are colour-coded by severity:
         - low → green, medium → yellow, high → orange, critical → red
-
-        Parameters
-        ----------
-        frame : np.ndarray
-            BGR image.
-        zones : list[FenceZone]
-            Zones to draw.
-        alpha : float
-            Opacity of the filled polygon overlay (0-1).
         """
+        if camera_id is not None:
+            zones = [z for z in zones if getattr(z, "camera_id", "all") in ("all", camera_id)]
+
         annotated = frame.copy()
         overlay = frame.copy()
 

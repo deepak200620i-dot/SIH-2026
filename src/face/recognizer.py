@@ -121,6 +121,7 @@ class FaceRecognizer:
         # ReID cache for unknown faces across frames
         self._unknown_cache: list[dict[str, Any]] = []
         self._next_unknown_id: int = 1
+        self._track_to_unknown_id: dict[int, int] = {}
 
         # Load InsightFace model
         self._app = self._load_model()
@@ -280,11 +281,20 @@ class FaceRecognizer:
 
         return (best_name, round(best_score, 4))
 
-    def _reidentify_unknown(self, embedding: np.ndarray) -> int:
+    def _reidentify_unknown(self, embedding: np.ndarray, person_track_id: int = -1) -> int:
         """
         Match an unknown face against recently seen unknown faces to maintain
         a consistent person ID across frames.
         """
+        # If this active track already has an assigned unknown ID, reuse it
+        if person_track_id >= 0 and person_track_id in self._track_to_unknown_id:
+            bound_id = self._track_to_unknown_id[person_track_id]
+            for u in self._unknown_cache:
+                if u["id"] == bound_id:
+                    u["last_seen"] = time.time()
+                    u["embedding"] = self._normalize(0.8 * u["embedding"] + 0.2 * embedding)
+                    return bound_id
+
         now = time.time()
         # Clean expired unknown faces (> 180s inactivity)
         self._unknown_cache = [
@@ -299,12 +309,15 @@ class FaceRecognizer:
                 best_unknown_score = score
                 best_unknown_id = u["id"]
 
-        # ArcFace cosine similarity >= 0.55 strongly indicates the same person
-        if best_unknown_id is not None and best_unknown_score >= 0.55:
+        # ArcFace cosine similarity >= 0.48 indicates the same person under varied angles/turns
+        if best_unknown_id is not None and best_unknown_score >= 0.48:
             for u in self._unknown_cache:
                 if u["id"] == best_unknown_id:
                     u["last_seen"] = now
+                    u["embedding"] = self._normalize(0.8 * u["embedding"] + 0.2 * embedding)
                     break
+            if person_track_id >= 0:
+                self._track_to_unknown_id[person_track_id] = best_unknown_id
             return best_unknown_id
 
         # Brand new unknown face: allocate next persistent ID
@@ -315,12 +328,15 @@ class FaceRecognizer:
             "embedding": embedding,
             "last_seen": now,
         })
+        if person_track_id >= 0:
+            self._track_to_unknown_id[person_track_id] = new_unknown_id
         return new_unknown_id
 
     def reset(self) -> None:
-        """Reset unknown face session cache."""
+        """Reset unknown face session cache and track bindings."""
         self._unknown_cache.clear()
         self._next_unknown_id = 1
+        self._track_to_unknown_id.clear()
 
     # ── Public API ───────────────────────────────────────────────────────
 
@@ -405,7 +421,7 @@ class FaceRecognizer:
 
         unknown_id = None
         if not is_known:
-            unknown_id = self._reidentify_unknown(embedding)
+            unknown_id = self._reidentify_unknown(embedding, person_track_id=person_track_id)
 
         # Convert face bbox from crop coordinates to frame coordinates
         fx1, fy1, fx2, fy2 = face.bbox.astype(int).tolist()
