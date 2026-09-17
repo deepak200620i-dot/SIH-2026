@@ -149,12 +149,38 @@ class FaceRecognizer:
                 else ["CPUExecutionProvider"]
             )
 
-            app = FaceAnalysis(name=self.model_name, providers=providers)
-            app.prepare(ctx_id=self.gpu_id, det_size=self.det_size)
-
-            logger.info("InsightFace model '%s' loaded (providers=%s)",
-                         self.model_name, providers)
-            return app
+            # Restrict to detection and recognition only — skip landmark 3d/2d and genderage
+            # to prevent ONNX bad allocation / OpenBLAS memory exhaustion on CPU.
+            try:
+                app = FaceAnalysis(
+                    name=self.model_name,
+                    allowed_modules=["detection", "recognition"],
+                    providers=providers,
+                )
+                app.prepare(ctx_id=self.gpu_id, det_size=self.det_size)
+                logger.info(
+                    "InsightFace model '%s' loaded (providers=%s)",
+                    self.model_name,
+                    providers,
+                )
+                return app
+            except Exception as primary_err:
+                if self.model_name != "buffalo_sc":
+                    logger.warning(
+                        "Failed to initialize '%s' (%s), attempting fallback to lightweight 'buffalo_sc'...",
+                        self.model_name,
+                        primary_err,
+                    )
+                    app = FaceAnalysis(
+                        name="buffalo_sc",
+                        allowed_modules=["detection", "recognition"],
+                        providers=providers,
+                    )
+                    app.prepare(ctx_id=self.gpu_id, det_size=self.det_size)
+                    self.model_name = "buffalo_sc"
+                    logger.info("InsightFace fallback model 'buffalo_sc' loaded successfully")
+                    return app
+                raise primary_err
         except Exception as err:
             logger.warning("Could not initialize InsightFace (%s): %s", self.model_name, err)
             return None

@@ -177,8 +177,19 @@ async def get_event_stats(conn) -> dict[str, Any]:
     )
     by_type = {r["event_type"]: r["cnt"] for r in type_rows}
     by_severity = {r["severity"]: r["cnt"] for r in sev_rows}
-    total = await conn.fetchval("SELECT COUNT(*) FROM events")
-    return {"total": total, "by_type": by_type, "by_severity": by_severity}
+    total = (await conn.fetchval("SELECT COUNT(*) FROM events")) or 0
+    active_cameras = (
+        await conn.fetchval(
+            "SELECT COUNT(*) FROM cameras WHERE LOWER(status) IN ('active', 'online')"
+        )
+    ) or 0
+    return {
+        "total": total,
+        "total_events": total,
+        "active_cameras": active_cameras,
+        "by_type": by_type,
+        "by_severity": by_severity,
+    }
 
 
 async def update_event_integrity(

@@ -66,10 +66,11 @@ class CameraResponse(CameraBase):
 
 
 class StatsResponse(BaseModel):
-    total_events: int
-    active_cameras: int
-    by_type: dict[str, int]
-    by_severity: dict[str, int]
+    total_events: int = 0
+    active_cameras: int = 0
+    by_type: dict[str, int] = {}
+    by_severity: dict[str, int] = {}
+    total: Optional[int] = None
 
 
 class FenceZoneSchema(BaseModel):

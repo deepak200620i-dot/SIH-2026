@@ -16,6 +16,11 @@ from dotenv import load_dotenv
 # Load .env before any module reads os.getenv
 load_dotenv()
 
+# Limit BLAS / OpenMP threads to prevent memory allocation exhaustion on Windows CPU
+os.environ.setdefault("OPENBLAS_NUM_THREADS", "2")
+os.environ.setdefault("OMP_NUM_THREADS", "2")
+os.environ.setdefault("MKL_NUM_THREADS", "2")
+
 from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse

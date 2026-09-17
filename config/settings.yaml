@@ -19,11 +19,22 @@ tracking:
   tracker: bytetrack.yaml
 fence:
   cooldown_seconds: 20.0
-  zones: []
+  zones:
+  - name: test_zone
+    polygon:
+    - - 0
+      - 0
+    - - 100
+      - 0
+    - - 100
+      - 100
+    - - 0
+      - 100
+    severity: critical
 face:
   gallery_path: data/faces
   similarity_threshold: 0.6
-  model_name: buffalo_l
+  model_name: buffalo_sc
   det_size:
   - 640
   - 640

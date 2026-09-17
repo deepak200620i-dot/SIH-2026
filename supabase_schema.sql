@@ -96,8 +96,6 @@ CREATE INDEX IF NOT EXISTS idx_audit_logs_action ON audit_logs(action);
 -- ========================================================================
 
 -- (Default demo cameras and fence zones removed per requirements)
-
-
 -- ========================================================================
 -- Row Level Security (RLS)
 -- ========================================================================
