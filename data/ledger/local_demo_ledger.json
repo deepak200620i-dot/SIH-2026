@@ -1132,7 +1132,106 @@
       "evidence_sha256": "81f07dd9ccb099e20a104035a22e3fc633e4464dfc9eebb46e982f22c0f7a3d3",
       "registered_at": "2026-09-17T14:44:53.437253+00:00",
       "previous_tip": "5fbe4a76c62b93007b9ee5d7"
+    },
+    "344": {
+      "record_id": "02e840b0bc91d4dda293dbd5",
+      "event_id": 344,
+      "camera_id": "device_webcam",
+      "event_type": "intrusion",
+      "severity": "critical",
+      "timestamp": "2026-09-17T15:50:20.553871+00:00",
+      "evidence_sha256": "ec5c56ea2c6841d306f9d51e23c673ef06f9ebd3e8e08bcd798875ca26d6252c",
+      "registered_at": "2026-09-17T15:50:22.472314+00:00",
+      "previous_tip": "2fea9082d959052be4c25c88"
+    },
+    "345": {
+      "record_id": "3269a36d86cfe0723af5c8eb",
+      "event_id": 345,
+      "camera_id": "device_webcam",
+      "event_type": "face_match",
+      "severity": "low",
+      "timestamp": "2026-09-17T15:50:20.568439+00:00",
+      "evidence_sha256": "1c7825cade373fc48efd6c648fcbd076d3a7dbc1212554c5d7ae62d87eb6a9a9",
+      "registered_at": "2026-09-17T15:50:22.766363+00:00",
+      "previous_tip": "02e840b0bc91d4dda293dbd5"
+    },
+    "346": {
+      "record_id": "85f2cfa5509a46178a6fa0e0",
+      "event_id": 346,
+      "camera_id": "device_webcam",
+      "event_type": "intrusion",
+      "severity": "critical",
+      "timestamp": "2026-09-17T15:50:25.069847+00:00",
+      "evidence_sha256": "edd0766deef1df4fe32e6108175436b048b3ede6426e1054391841d65ba3f253",
+      "registered_at": "2026-09-17T15:50:25.389658+00:00",
+      "previous_tip": "3269a36d86cfe0723af5c8eb"
+    },
+    "347": {
+      "record_id": "8439dda9442aa900d81c3dc8",
+      "event_id": 347,
+      "camera_id": "device_webcam",
+      "event_type": "face_unknown",
+      "severity": "high",
+      "timestamp": "2026-09-17T15:50:25.080476+00:00",
+      "evidence_sha256": "8d88de3f894a370685e6f6191d4a013624760da27203bdd5381cdb9f2387b115",
+      "registered_at": "2026-09-17T15:50:25.639606+00:00",
+      "previous_tip": "85f2cfa5509a46178a6fa0e0"
+    },
+    "348": {
+      "record_id": "ad32fb0ea1d5431ca62df5f2",
+      "event_id": 348,
+      "camera_id": "device_webcam",
+      "event_type": "face_unknown",
+      "severity": "high",
+      "timestamp": "2026-09-17T15:50:26.591914+00:00",
+      "evidence_sha256": "9e36df17d1c1d8f4426ab0451b3cff29147685fa60dddda3362afb2a97f1245b",
+      "registered_at": "2026-09-17T15:50:26.901322+00:00",
+      "previous_tip": "8439dda9442aa900d81c3dc8"
+    },
+    "349": {
+      "record_id": "89e8672d4bd20f4a69f625ac",
+      "event_id": 349,
+      "camera_id": "upload_feed",
+      "event_type": "face_unknown",
+      "severity": "high",
+      "timestamp": "2026-09-17T15:51:29.706719+00:00",
+      "evidence_sha256": "06eb1351332802c3133c070ba1126c9a9d1fe17bfdafdb72700e437f0ecd80a2",
+      "registered_at": "2026-09-17T15:51:30.781139+00:00",
+      "previous_tip": "ad32fb0ea1d5431ca62df5f2"
+    },
+    "350": {
+      "record_id": "0993f867bbc9e455460bb83d",
+      "event_id": 350,
+      "camera_id": "upload_feed",
+      "event_type": "person_detected",
+      "severity": "medium",
+      "timestamp": "2026-09-17T15:51:30.760461+00:00",
+      "evidence_sha256": "100aadbe054f86a22bab35285003a946bee06c2d5688deb16b7dde8072c05052",
+      "registered_at": "2026-09-17T15:51:58.472868+00:00",
+      "previous_tip": "89e8672d4bd20f4a69f625ac"
+    },
+    "351": {
+      "record_id": "a5dc6b429ada5b2bc702fb66",
+      "event_id": 351,
+      "camera_id": "upload_feed",
+      "event_type": "repeated_zone_entry",
+      "severity": "medium",
+      "timestamp": "2026-09-17T15:51:58.444835+00:00",
+      "evidence_sha256": "ac724c6e0b3b3dd31cf0d712011871c589fa748f0fe03ffeca928eb1eed7a11b",
+      "registered_at": "2026-09-17T15:52:00.233332+00:00",
+      "previous_tip": "0993f867bbc9e455460bb83d"
+    },
+    "352": {
+      "record_id": "ee6973c686bed6b14b4c1bc1",
+      "event_id": 352,
+      "camera_id": "upload_feed",
+      "event_type": "person_detected",
+      "severity": "medium",
+      "timestamp": "2026-09-17T15:52:00.207892+00:00",
+      "evidence_sha256": "157766e03404aa95b900869d24a1bcf8bb48c02057bef3aa5ea7adc9a5be9cf9",
+      "registered_at": "2026-09-17T15:52:36.219424+00:00",
+      "previous_tip": "a5dc6b429ada5b2bc702fb66"
     }
   },
-  "chain_tip": "2fea9082d959052be4c25c88"
+  "chain_tip": "ee6973c686bed6b14b4c1bc1"
 }
