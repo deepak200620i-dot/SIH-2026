@@ -142,17 +142,29 @@ async def init_db(database_url: str | None = None) -> asyncpg.Pool:
             "DATABASE_URL not set. Provide a Supabase PostgreSQL connection string."
         )
 
+    # Supabase pooler on port 5432 is Session mode (limited to 15 concurrent clients).
+    # Switch to port 6543 (Transaction mode) to prevent EMAXCONNSESSION errors.
+    if "pooler.supabase.com:5432" in url:
+        print("[DB] Notice: Switching Supabase pooler from session mode (:5432) to transaction mode (:6543)")
+        url = url.replace("pooler.supabase.com:5432", "pooler.supabase.com:6543")
+
     # Supabase requires SSL
     ssl_ctx = ssl.create_default_context()
     ssl_ctx.check_hostname = False
     ssl_ctx.verify_mode = ssl.CERT_NONE
 
+    # When using transaction pooling (PgBouncer / Supabase port 6543), prepared statement caching must be disabled
+    is_pooler = ":6543" in url or "pooler.supabase.com" in url
+    stmt_cache = 0 if is_pooler else 100
+
     print("[DB] Connecting to PostgreSQL...")
     _pool = await asyncpg.create_pool(
         url,
-        min_size=2,
+        min_size=1,
         max_size=10,
         ssl=ssl_ctx,
+        statement_cache_size=stmt_cache,
+        max_inactive_connection_lifetime=300.0,
         command_timeout=30,
     )
 
@@ -205,37 +217,8 @@ async def seed_admin_user() -> None:
 
 
 async def seed_default_cameras() -> None:
-<<<<<<< HEAD
     """No-op: default demo cameras are disabled so user starts with clean state."""
     pass
-=======
-    """Seed default cameras if cameras table is empty."""
-    if _pool is None:
-        return
-
-    async with _pool.acquire() as conn:
-        count = await conn.fetchval("SELECT COUNT(*) FROM cameras")
-        if count == 0:
-            cameras = [
-                ("cam_01", "Border Gate Alpha (North)", "data/videos/test.mp4", "active"),
-                ("cam_02", "Perimeter Fence East", "data/videos/perimeter.mp4", "active"),
-                ("cam_03", "Vehicle Checkpoint South", "data/videos/checkpoint.mp4", "active"),
-                ("cam_04", "Watchtower West", "data/videos/watchtower.mp4", "active"),
-            ]
-            for cam_id, name, source, status in cameras:
-                await conn.execute(
-                    """
-                    INSERT INTO cameras (id, name, source, status)
-                    VALUES ($1, $2, $3, $4)
-                    ON CONFLICT (id) DO NOTHING
-                    """,
-                    cam_id,
-                    name,
-                    source,
-                    status,
-                )
-            print("[DB] Seeded default cameras.")
->>>>>>> 0619cfbfff345fe95b563eca2cf9d8abeaf856ea
 
 
 def get_db_pool() -> asyncpg.Pool:

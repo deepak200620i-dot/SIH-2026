@@ -19,11 +19,22 @@ tracking:
   tracker: bytetrack.yaml
 fence:
   cooldown_seconds: 20.0
-  zones: []
+  zones:
+  - name: test_zone
+    polygon:
+    - - 0
+      - 0
+    - - 100
+      - 0
+    - - 100
+      - 100
+    - - 0
+      - 100
+    severity: critical
 face:
   gallery_path: data/faces
   similarity_threshold: 0.6
-  model_name: buffalo_l
+  model_name: buffalo_sc
   det_size:
   - 640
   - 640
@@ -32,7 +43,6 @@ face:
 weapon_detection:
   enabled: true
   model_path: models/weapon_detector.pt
-<<<<<<< HEAD
   confidence: 0.35
   iou_threshold: 0.45
   img_size: 1024
@@ -42,27 +52,6 @@ weapon_detection:
   - blunt_weapon
   - explosive
   - fire_smoke
-=======
-  confidence: 0.45
-  iou_threshold: 0.45
-  img_size: 640
-  weapon_labels:
-  - gun
-  - pistol
-  - rifle
-  - assault_rifle
-  - sniper_rifle
-  - submachine_gun
-  - machine_gun
-  - rocket_launcher
-  - rocketlauncher
-  - rpg
-  - missile_launcher
-  - mortar
-  - grenade
-  - knife
-  - military_weapon
->>>>>>> 0619cfbfff345fe95b563eca2cf9d8abeaf856ea
 events:
   cooldown_seconds: 30
   evidence_path: data/evidence

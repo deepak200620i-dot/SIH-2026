@@ -80,6 +80,11 @@ async def fetch_stats(
 ) -> StatsResponse:
     """Get system-wide event and camera summary statistics."""
     stats = await get_event_stats(db)
+    if isinstance(stats, dict):
+        if "total_events" not in stats and "total" in stats:
+            stats["total_events"] = stats["total"]
+        if "active_cameras" not in stats:
+            stats["active_cameras"] = 0
     return StatsResponse(**stats)
 
 
