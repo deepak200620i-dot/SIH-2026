@@ -47,11 +47,20 @@ class WeaponDetector:
         self.img_size = int(cfg.get("img_size", 640))
         self.device = cfg.get("device", "")
         self.weapon_labels = {self._normalise(label) for label in cfg.get("weapon_labels", [])}
+        self.download_url = cfg.get(
+            "download_url",
+            "https://huggingface.co/HaiderKhan6410/weapon-yolo26x/resolve/main/model/best.pt",
+        )
         self.model: YOLO | None = None
         self._model_names: dict[int, str] = {}
 
         if not self.enabled:
             return
+
+        if not self.model_path.is_file():
+            if self.download_url:
+                self._auto_download(self.download_url)
+
         if not self.model_path.is_file():
             logger.warning(
                 "Weapon detection is disabled: custom model not found at %s", self.model_path
@@ -62,6 +71,48 @@ class WeaponDetector:
         names = getattr(self.model, "names", {})
         self._model_names = dict(names) if isinstance(names, dict) else {}
         logger.info("Weapon detection model loaded from %s", self.model_path)
+
+    def _auto_download(self, url: str) -> bool:
+        """Automatically download weapon detection weights if not found locally."""
+        try:
+            logger.info("Weapon model not found at %s. Auto-downloading from %s...", self.model_path, url)
+            self.model_path.parent.mkdir(parents=True, exist_ok=True)
+            import urllib.request
+
+            req = urllib.request.Request(
+                url,
+                headers={"User-Agent": "Mozilla/5.0 (IBVAP Surveillance Platform)"},
+            )
+            temp_path = self.model_path.with_suffix(".tmp")
+            with urllib.request.urlopen(req) as resp, open(temp_path, "wb") as out:
+                total = int(resp.headers.get("Content-Length", 0))
+                downloaded = 0
+                chunk_size = 1024 * 1024
+                while True:
+                    chunk = resp.read(chunk_size)
+                    if not chunk:
+                        break
+                    out.write(chunk)
+                    downloaded += len(chunk)
+                    if total > 0 and downloaded % (15 * 1024 * 1024) < chunk_size:
+                        logger.info(
+                            "Downloading weapon model: %.1f / %.1f MB (%.1f%%)",
+                            downloaded / (1024 * 1024),
+                            total / (1024 * 1024),
+                            (downloaded / total) * 100,
+                        )
+
+            if temp_path.exists() and temp_path.stat().st_size > 10_000_000:
+                temp_path.replace(self.model_path)
+                logger.info("Weapon detector weights downloaded successfully to %s", self.model_path)
+                return True
+            else:
+                if temp_path.exists():
+                    temp_path.unlink()
+                return False
+        except Exception as err:
+            logger.warning("Auto-download of weapon detector model failed: %s", err)
+            return False
 
     @property
     def available(self) -> bool:

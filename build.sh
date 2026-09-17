@@ -23,6 +23,11 @@ echo ">> Creating runtime storage directories..."
 mkdir -p data/evidence
 mkdir -p data/faces
 mkdir -p data/videos
+mkdir -p models
+
+# 4. Download / verify model weights
+echo ">> Downloading / verifying AI model weights..."
+python scripts/download_models.py
 
 echo "========================================="
 echo "IBVAP Build Completed Successfully!"

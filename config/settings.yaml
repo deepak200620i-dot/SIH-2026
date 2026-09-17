@@ -43,6 +43,7 @@ face:
 weapon_detection:
   enabled: true
   model_path: models/weapon_detector.pt
+  download_url: https://huggingface.co/HaiderKhan6410/weapon-yolo26x/resolve/main/model/best.pt
   confidence: 0.35
   iou_threshold: 0.45
   img_size: 1024
