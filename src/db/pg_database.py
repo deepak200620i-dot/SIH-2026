@@ -9,7 +9,6 @@ from __future__ import annotations
 
 import os
 import ssl
-import traceback
 
 import asyncpg
 
@@ -148,7 +147,9 @@ async def init_db(database_url: str | None = None) -> asyncpg.Pool:
         print("[DB] Notice: Switching Supabase pooler from session mode (:5432) to transaction mode (:6543)")
         url = url.replace("pooler.supabase.com:5432", "pooler.supabase.com:6543")
 
-    # Supabase requires SSL
+    # Supabase requires SSL, but their PgBouncer pooler uses certificates whose
+    # CN does not match the pooler hostname, so strict hostname verification
+    # would reject the connection.  This is a known Supabase requirement.
     ssl_ctx = ssl.create_default_context()
     ssl_ctx.check_hostname = False
     ssl_ctx.verify_mode = ssl.CERT_NONE

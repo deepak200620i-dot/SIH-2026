@@ -58,6 +58,21 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     # Seed admin user
     await seed_admin_user()
 
+    # ── Security startup checks ──────────────────────────────────────
+    _jwt = os.getenv("JWT_SECRET", "")
+    _admin_pw = os.getenv("IBVAP_ADMIN_PASSWORD", "")
+    if not _jwt or _jwt == "ibvap-sih-2026-jwt-secret-key-CHANGE-IN-PROD":
+        print(
+            "\n⚠️  WARNING: JWT_SECRET is set to the default value. "
+            "Anyone can forge authentication tokens. "
+            "Set a unique, random JWT_SECRET in production!\n"
+        )
+    if not _admin_pw or _admin_pw == "Admin@123":
+        print(
+            "⚠️  WARNING: IBVAP_ADMIN_PASSWORD is the default 'Admin@123'. "
+            "Change it immediately for production deployments.\n"
+        )
+
     # Load any saved fence zones into pipeline
     try:
         from src.api.routes.video import get_pipeline

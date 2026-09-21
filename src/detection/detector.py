@@ -3,6 +3,10 @@ IBVAP — YOLO26n Object Detector
 ================================
 Thin, testable wrapper around Ultralytics YOLO for person/vehicle detection.
 
+Note: The main ``VideoPipeline`` uses ``Tracker`` (which wraps ``model.track()``)
+rather than this ``Detector`` (which wraps ``model.predict()``).  This module is
+retained for standalone detection scripts and future single-frame analysis.
+
 Usage:
     from src.detection.detector import Detector
     det = Detector(config)

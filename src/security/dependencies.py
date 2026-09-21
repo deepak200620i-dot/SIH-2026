@@ -17,6 +17,44 @@ from src.security.models import Role, UserInDB
 bearer_scheme = HTTPBearer(auto_error=False)
 
 
+# ── Shared helpers (deduplication) ──────────────────────────────────────
+
+def _extract_token(
+    request: Request,
+    credentials: HTTPAuthorizationCredentials | None,
+) -> str | None:
+    """Extract a Bearer token from header or query params."""
+    if credentials is not None and credentials.credentials:
+        return credentials.credentials
+    if "token" in request.query_params:
+        return request.query_params["token"]
+    return None
+
+
+async def _fetch_user_from_db(username: str) -> UserInDB | None:
+    """Look up a user by username and return a UserInDB, or None."""
+    from src.db.crud import get_user_by_username
+    from src.db.database import get_db_pool
+
+    pool = get_db_pool()
+    async with pool.acquire() as conn:
+        user_row = await get_user_by_username(conn, username)
+
+    if not user_row:
+        return None
+
+    return UserInDB(
+        id=user_row["id"],
+        username=user_row["username"],
+        password_hash=user_row["password_hash"],
+        role=user_row["role"],
+        is_active=user_row["is_active"],
+        created_at=str(user_row["created_at"]) if user_row.get("created_at") else None,
+    )
+
+
+# ── Public dependencies ────────────────────────────────────────────────
+
 async def get_current_user(
     request: Request,
     credentials: HTTPAuthorizationCredentials | None = Depends(bearer_scheme),
@@ -25,11 +63,7 @@ async def get_current_user(
     Extract and validate the Bearer JWT, then fetch the user from the DB.
     Returns a ``UserInDB`` instance or raises 401.
     """
-    token_str: str | None = None
-    if credentials is not None and credentials.credentials:
-        token_str = credentials.credentials
-    elif "token" in request.query_params:
-        token_str = request.query_params["token"]
+    token_str = _extract_token(request, credentials)
 
     if not token_str:
         raise HTTPException(
@@ -52,25 +86,10 @@ async def get_current_user(
             headers={"WWW-Authenticate": "Bearer"},
         )
 
-    # Fetch user from DB
-    from src.db.crud import get_user_by_username
-    from src.db.database import get_db_pool
+    user = await _fetch_user_from_db(username)
 
-    pool = get_db_pool()
-    async with pool.acquire() as conn:
-        user_row = await get_user_by_username(conn, username)
-
-    if user_row is None:
+    if user is None:
         raise HTTPException(status_code=401, detail="User not found")
-
-    user = UserInDB(
-        id=user_row["id"],
-        username=user_row["username"],
-        password_hash=user_row["password_hash"],
-        role=user_row["role"],
-        is_active=user_row["is_active"],
-        created_at=str(user_row["created_at"]) if user_row["created_at"] else None,
-    )
 
     if not user.is_active:
         raise HTTPException(status_code=403, detail="User account is disabled")
@@ -86,11 +105,7 @@ async def get_optional_user(
     Optional authentication: extracts and validates the Bearer JWT or query param if present.
     Returns ``UserInDB`` if valid, otherwise ``None`` (without raising 401).
     """
-    token_str: str | None = None
-    if credentials is not None and credentials.credentials:
-        token_str = credentials.credentials
-    elif "token" in request.query_params:
-        token_str = request.query_params["token"]
+    token_str = _extract_token(request, credentials)
 
     if not token_str:
         return None
@@ -106,24 +121,10 @@ async def get_optional_user(
         return None
 
     try:
-        from src.db.crud import get_user_by_username
-        from src.db.database import get_db_pool
-
-        pool = get_db_pool()
-        async with pool.acquire() as conn:
-            user_row = await get_user_by_username(conn, username)
-
-        if not user_row or not user_row.get("is_active"):
+        user = await _fetch_user_from_db(username)
+        if not user or not user.is_active:
             return None
-
-        return UserInDB(
-            id=user_row["id"],
-            username=user_row["username"],
-            password_hash=user_row["password_hash"],
-            role=user_row["role"],
-            is_active=user_row["is_active"],
-            created_at=str(user_row["created_at"]) if user_row.get("created_at") else None,
-        )
+        return user
     except Exception:
         return None
 

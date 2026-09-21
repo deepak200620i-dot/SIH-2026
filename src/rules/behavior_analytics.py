@@ -103,11 +103,11 @@ class BehaviorAnalytics:
         self.zones = zones
 
     def _is_inside(self, point: tuple[float, float], polygon: list[list[int]]) -> bool:
-        """Check if a point is inside a polygon using cv2.pointPolygonTest."""
+        """Check if a point is inside a polygon. Delegates to VirtualFence."""
         if len(polygon) < 3:
             return False
-        np_poly = np.array(polygon, dtype=np.float32).reshape((-1, 1, 2))
-        return cv2.pointPolygonTest(np_poly, point, False) >= 0
+        from src.rules.virtual_fence import VirtualFence
+        return VirtualFence.is_inside((int(point[0]), int(point[1])), polygon)
 
     def _check_cooldown(self, key: str, now: float) -> bool:
         """Return True if cooldown has expired (i.e., OK to fire)."""

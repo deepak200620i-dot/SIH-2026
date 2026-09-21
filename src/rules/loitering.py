@@ -16,7 +16,6 @@ import time
 from dataclasses import dataclass
 from typing import Any
 
-import cv2
 import numpy as np
 
 from src.rules.virtual_fence import FenceZone
@@ -69,13 +68,9 @@ class LoiteringDetector:
 
     @staticmethod
     def is_inside(point: tuple[int, int], polygon: np.ndarray | list) -> bool:
-        """Test if a point is inside a polygon using OpenCV pointPolygonTest."""
-        if not isinstance(polygon, np.ndarray):
-            polygon = np.array(polygon, dtype=np.int32)
-        result = cv2.pointPolygonTest(
-            polygon, (float(point[0]), float(point[1])), False
-        )
-        return result >= 0
+        """Test if a point is inside a polygon. Delegates to VirtualFence."""
+        from src.rules.virtual_fence import VirtualFence
+        return VirtualFence.is_inside(point, polygon)
 
     def get_dwell_time(
         self, track_id: int, zone_name: str, current_time: float
@@ -152,5 +147,4 @@ class LoiteringDetector:
     def reset(self) -> None:
         """Clear entry timestamps and cooldown state."""
         self._entry_times.clear()
-        self._last_event.clear() if hasattr(self, "_last_event") else None
         self._last_alert.clear()
