@@ -350,7 +350,7 @@ export const LiveSurveillance: React.FC = () => {
           {/* Add Camera Button */}
           <button
             onClick={() => setIsAddCameraOpen(true)}
-            className="flex items-center gap-2 px-4 py-2 bg-gray-800 hover:bg-gray-700 text-gray-200 border border-gray-700 rounded-lg font-medium text-sm transition"
+            className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white border border-blue-500 rounded-lg font-medium text-sm transition shadow-sm"
           >
             <Plus size={16} />
             <span>Add Camera</span>

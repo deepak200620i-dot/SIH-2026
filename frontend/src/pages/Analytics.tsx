@@ -49,7 +49,7 @@ export const Analytics: React.FC = () => {
     loadAnalytics();
   }, [range]);
 
-  const colors = ["#ef4444", "#f97316", "#eab308", "#3b82f6", "#10b981", "#8b5cf6"];
+  const colors = ["#06b6d4", "#3b82f6", "#8b5cf6", "#f97316", "#10b981", "#eab308"];
 
   return (
     <div className="p-6 space-y-8">
@@ -102,8 +102,8 @@ export const Analytics: React.FC = () => {
             <Line
               type="monotone"
               dataKey="count"
-              stroke="#ef4444"
-              dot={{ fill: "#ef4444" }}
+              stroke="#06b6d4"
+              dot={{ fill: "#06b6d4" }}
               name="Alerts"
             />
           </LineChart>
@@ -122,7 +122,7 @@ export const Analytics: React.FC = () => {
               contentStyle={{ backgroundColor: "#1f2937", border: "1px solid #374151" }}
               labelStyle={{ color: "#fff" }}
             />
-            <Bar dataKey="count" fill="#ef4444" name="Intrusions" />
+            <Bar dataKey="count" fill="#3b82f6" name="Intrusions" />
           </BarChart>
         </ResponsiveContainer>
       </div>
