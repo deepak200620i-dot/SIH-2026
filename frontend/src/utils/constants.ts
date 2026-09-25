@@ -15,6 +15,7 @@ export const EVENT_TYPES: Record<string, string> = {
   UNKNOWN_VEHICLE: "Unknown Vehicle",
   LOITERING: "Loitering Detected",
   RESTRICTED_ZONE_ENTRY: "Restricted Zone Entry",
+  WEAPON_DETECTED: "Weapon Detected",
 };
 
 export const SEVERITY_ORDER: Record<string, number> = {

@@ -12,6 +12,7 @@ import {
   Settings,
   Radio,
   ShieldAlert,
+  Crosshair,
 } from "lucide-react";
 import { apiGetSystemStatus, apiGetCameras } from "@/services/api";
 
@@ -26,6 +27,7 @@ const menuItems = [
   { icon: Zap, label: "ANPR", path: "/anpr" },
   { icon: MapPin, label: "Zones", path: "/zones" },
   { icon: ShieldAlert, label: "Intrusions", path: "/intrusions" },
+  { icon: Crosshair, label: "Weapon Detection", path: "/weapons" },
   { icon: BarChart3, label: "Analytics", path: "/analytics" },
   { icon: Settings, label: "Settings", path: "/settings" },
 ];

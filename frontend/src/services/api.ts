@@ -5,6 +5,7 @@ import {
   Person,
   FaceEvent,
   ANPREvent,
+  WeaponEvent,
   Zone,
   SystemStatus,
   AnalyticsData,
@@ -97,6 +98,7 @@ const mapFrontendEventTypeToBackend = (eventType: string): string => {
     INTRUSION: "intrusion", LOITERING: "loitering", FACE_RECOGNIZED: "face_match",
     UNKNOWN_FACE: "face_unknown", ANPR_DETECTED: "anpr", PERSON_DETECTED: "person_detected",
     VEHICLE_DETECTED: "vehicle_detected", RESTRICTED_ZONE_ENTRY: "intrusion",
+    WEAPON_DETECTED: "weapon_detected",
   };
   return types[eventType] || eventType.toLowerCase();
 };
@@ -563,6 +565,49 @@ export const apiGetANPREvents = async (
         plateNumber: e.plate_text || "UNKNOWN",
         ocrConfidence: e.confidence ? Math.round(e.confidence * 100) : 95,
         status: "AUTHORIZED" as const,
+      }));
+      const total = typeof data.total === "number" ? data.total : items.length;
+      return {
+        items,
+        total,
+        page,
+        pageSize,
+        hasMore: offset + items.length < total,
+      };
+    }
+  } catch (err) {}
+
+  return {
+    items: [],
+    total: 0,
+    page,
+    pageSize,
+    hasMore: false,
+  };
+};
+
+// ============ WEAPON EVENTS ============
+export const apiGetWeaponEvents = async (
+  page: number = 1,
+  pageSize: number = 20
+): Promise<PaginatedResponse<WeaponEvent>> => {
+  try {
+    const offset = (page - 1) * pageSize;
+    const res = await authFetch(`${API_BASE}/api/events?event_type=weapon_detected&limit=${pageSize}&offset=${offset}`);
+    if (res.ok) {
+      const data = await res.json();
+      const weaponEvts = data.items || [];
+      const items = weaponEvts.map((e: any) => ({
+        id: String(e.id),
+        cameraId: e.camera_id || "cam_01",
+        timestamp: e.timestamp,
+        evidenceUrl: getEvidenceUrl(e.snapshot) || "/favicon.svg",
+        weaponClass: e.class_name || e.metadata?.weapon_class || "unknown",
+        confidence: e.confidence ? Math.round(e.confidence * 100) : 0,
+        personIdentity: e.metadata?.person_identity || e.face_name || "Unknown Person",
+        unauthorized: e.metadata?.unauthorized_person !== false,
+        trackId: e.track_id,
+        status: (e.status || "ACTIVE") as WeaponEvent["status"],
       }));
       const total = typeof data.total === "number" ? data.total : items.length;
       return {

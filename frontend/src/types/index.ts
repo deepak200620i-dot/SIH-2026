@@ -110,6 +110,20 @@ export interface ANPREvent {
   status: "AUTHORIZED" | "UNKNOWN" | "WATCHLIST";
 }
 
+// Weapon Detection
+export interface WeaponEvent {
+  id: string;
+  cameraId: string;
+  timestamp: string;
+  evidenceUrl: string;
+  weaponClass: string;
+  confidence: number;
+  personIdentity: string;
+  unauthorized: boolean;
+  trackId?: number;
+  status: "ACTIVE" | "ACKNOWLEDGED" | "INVESTIGATING" | "RESOLVED";
+}
+
 // Security Events
 export interface SecurityEvent {
   id: string;
