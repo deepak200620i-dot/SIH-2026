@@ -99,10 +99,10 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
         </form>
 
         {/* Credentials Info */}
-        <div className="mt-6 p-4 bg-blue-900/20 border border-blue-700 rounded text-sm text-blue-200">
-          <p className="font-semibold mb-1">Default Credentials</p>
-          <p>Admin: admin / Admin@123</p>
-          <p>Operator: operator / operator123</p>
+        <div className="mt-6 p-4 bg-gray-800 border border-gray-600 rounded text-sm text-gray-100">
+          <p className="font-semibold mb-1 text-white">Default Credentials</p>
+          <p className="text-gray-200">Admin: <span className="font-mono text-emerald-400">admin</span> / <span className="font-mono text-emerald-400">Admin@123</span></p>
+          <p className="text-gray-200">Operator: <span className="font-mono text-emerald-400">operator</span> / <span className="font-mono text-emerald-400">operator123</span></p>
         </div>
       </div>
     </div>
