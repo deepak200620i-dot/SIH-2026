@@ -426,21 +426,25 @@ async def delete_camera(conn, camera_id: str) -> bool:
     return result.endswith("1")
 
 
+def _normalize_face_image_url(image_path: str | None) -> str | None:
+    """Convert a stored face image_path to a frontend-usable /api/evidence/ URL."""
+    if not image_path:
+        return None
+    norm = image_path.replace("\\", "/").strip("/")
+    for pfx in ("data/faces/", "data/evidence/", "data/"):
+        if norm.startswith(pfx):
+            norm = norm[len(pfx):]
+            break
+    return f"/api/evidence/{norm}"
+
+
 # ───────────────────────── KNOWN FACES ─────────────────────────────────
 async def get_known_faces(conn) -> list[dict[str, Any]]:
     rows = await conn.fetch("SELECT id, name, image_path, created_at FROM known_faces ORDER BY id")
     result = []
     for r in rows:
         d = _rec(r)
-        if d.get("image_path"):
-            norm = d["image_path"].replace("\\", "/").strip("/")
-            for pfx in ("data/faces/", "data/evidence/", "data/"):
-                if norm.startswith(pfx):
-                    norm = norm[len(pfx):]
-                    break
-            d["image_url"] = f"/api/evidence/{norm}"
-        else:
-            d["image_url"] = None
+        d["image_url"] = _normalize_face_image_url(d.get("image_path"))
         result.append(d)
     return result
 
@@ -459,15 +463,7 @@ async def add_known_face(
         embedding,
     )
     d = _rec(row)
-    if d.get("image_path"):
-        norm = d["image_path"].replace("\\", "/").strip("/")
-        for pfx in ("data/faces/", "data/evidence/", "data/"):
-            if norm.startswith(pfx):
-                norm = norm[len(pfx):]
-                break
-        d["image_url"] = f"/api/evidence/{norm}"
-    else:
-        d["image_url"] = None
+    d["image_url"] = _normalize_face_image_url(d.get("image_path"))
     return d
 
 

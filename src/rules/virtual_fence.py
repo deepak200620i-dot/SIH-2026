@@ -143,7 +143,12 @@ class VirtualFence:
         return result >= 0
 
     def _should_alert(self, key: tuple[str, int, str], timestamp: float) -> bool:
-        """Check if enough time has passed since the last alert for this key."""
+        """Check if enough time has passed since the last alert for this key.
+
+        Legacy: This cooldown-based method is no longer called by ``check()``,
+        which uses ``_active_inside`` entry/exit tracking instead.  Retained for
+        potential future cooldown-based alert modes.
+        """
         if key not in self._last_alert:
             return True
         elapsed = timestamp - self._last_alert[key]

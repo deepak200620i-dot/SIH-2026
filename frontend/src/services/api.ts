@@ -354,7 +354,7 @@ export const apiGetEvents = async (
 
 export const apiGetEvent = async (eventId: string): Promise<SecurityEvent | null> => {
   try {
-    const res = await fetch(`${API_BASE}/api/events/${eventId}`);
+    const res = await authFetch(`${API_BASE}/api/events/${eventId}`);
     if (res.ok) {
       const data = await res.json();
       return mapBackendToSecurityEvent(data);
@@ -375,7 +375,7 @@ export const apiGetAlerts = async (
     if (filters?.severity) url += `&severity=${filters.severity.toLowerCase()}`;
     if (filters?.cameraId) url += `&camera_id=${filters.cameraId}`;
 
-    const res = await fetch(url);
+    const res = await authFetch(url);
     if (res.ok) {
       const data = await res.json();
       const items = (data.items || []).map(mapBackendToAlert);
@@ -411,9 +411,8 @@ export const apiGetAlert = async (alertId: string): Promise<Alert | null> => {
 export const apiUpdateAlertStatus = async (alertId: string, status: string): Promise<boolean> => {
   try {
     const eventId = alertId.replace(/^alert-/, "");
-    const res = await fetch(`${API_BASE}/api/events/${eventId}/status`, {
+    const res = await authFetch(`${API_BASE}/api/events/${eventId}/status`, {
       method: "PATCH",
-      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ status }),
     });
     return res.ok;
@@ -425,7 +424,7 @@ export const apiUpdateAlertStatus = async (alertId: string, status: string): Pro
 
 export const apiDeleteCamera = async (cameraId: string): Promise<boolean> => {
   try {
-    return (await fetch(`${API_BASE}/api/cameras/${encodeURIComponent(cameraId)}`, { method: "DELETE" })).ok;
+    return (await authFetch(`${API_BASE}/api/cameras/${encodeURIComponent(cameraId)}`, { method: "DELETE" })).ok;
   } catch (err) {
     console.error("Failed to delete camera:", err);
     return false;
@@ -443,8 +442,6 @@ export const apiStopCamera = async (cameraId: string = "device_webcam"): Promise
     console.warn("Could not finalize camera sessions:", err);
   }
 };
-
-// ============ PERSONS (Known Faces) ============
 
 // ============ PERSONS (Known Faces) ============
 export const apiGetPersons = async (): Promise<Person[]> => {
@@ -553,7 +550,7 @@ export const apiGetANPREvents = async (
 ): Promise<PaginatedResponse<ANPREvent>> => {
   try {
     const offset = (page - 1) * pageSize;
-    const res = await fetch(`${API_BASE}/api/events?event_type=anpr&limit=${pageSize}&offset=${offset}`);
+    const res = await authFetch(`${API_BASE}/api/events?event_type=anpr&limit=${pageSize}&offset=${offset}`);
     if (res.ok) {
       const data = await res.json();
       const anprEvts = data.items || [];
@@ -602,7 +599,7 @@ export const apiGetFenceZones = async (cameraId?: string): Promise<FenceZoneItem
     const url = cameraId && cameraId !== "all" 
       ? `${API_BASE}/api/zones?camera_id=${cameraId}` 
       : `${API_BASE}/api/zones`;
-    const res = await fetch(url);
+    const res = await authFetch(url);
     if (res.ok) {
       return await res.json();
     }
@@ -619,9 +616,8 @@ export const apiCreateFenceZone = async (zone: {
   camera_id?: string;
 }): Promise<FenceZoneItem | null> => {
   try {
-    const res = await fetch(`${API_BASE}/api/zones`, {
+    const res = await authFetch(`${API_BASE}/api/zones`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         name: zone.name,
         polygon: zone.polygon,
@@ -640,7 +636,7 @@ export const apiCreateFenceZone = async (zone: {
 
 export const apiDeleteFenceZone = async (zoneId: number): Promise<boolean> => {
   try {
-    const res = await fetch(`${API_BASE}/api/zones/${zoneId}`, {
+    const res = await authFetch(`${API_BASE}/api/zones/${zoneId}`, {
       method: "DELETE",
     });
     return res.ok;
@@ -772,7 +768,7 @@ export const apiGetAnalytics = async (timeRange: string = "24h"): Promise<Analyt
 export const apiGetDashboardStats = async (): Promise<any> => {
   try {
     const [statsRes, cams] = await Promise.all([
-      fetch(`${API_BASE}/api/events/stats`),
+      authFetch(`${API_BASE}/api/events/stats`),
       apiGetCameras(),
     ]);
 

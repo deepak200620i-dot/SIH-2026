@@ -16,15 +16,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from src.api.main import app
-from src.db.database import get_db, init_db
 
-
-@pytest.fixture
-def temp_api_db():
-    import asyncio
-    asyncio.run(init_db())
-    yield
-    app.dependency_overrides.clear()
 
 @pytest.fixture
 def client():
