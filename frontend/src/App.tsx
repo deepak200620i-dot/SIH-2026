@@ -84,6 +84,9 @@ export const App: React.FC = () => {
           <Route path="/zones" element={<Zones />} />
           <Route path="/intrusions" element={<Intrusions />} />
           <Route path="/weapons" element={<WeaponDetection />} />
+          <Route path="/weapon-detection" element={<WeaponDetection />} />
+          <Route path="/weaponDetection" element={<WeaponDetection />} />
+          <Route path="/weapondetection" element={<WeaponDetection />} />
           <Route path="/analytics" element={<Analytics />} />
           <Route path="/settings" element={<Settings />} />
           <Route path="*" element={<Navigate to="/dashboard" />} />

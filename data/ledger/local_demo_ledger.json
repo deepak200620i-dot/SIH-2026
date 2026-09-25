@@ -2122,7 +2122,95 @@
       "evidence_sha256": "1f483cb423a37958771b05f993c5f3b275e1eaec6ff6ccdcc49beb3d83dafe84",
       "registered_at": "2026-09-25T14:28:19.204879+00:00",
       "previous_tip": "c416294c4d8f99c1f0ca61ac"
+    },
+    "442": {
+      "record_id": "b66502f956f94c82ac4f923a",
+      "event_id": 442,
+      "camera_id": "device_webcam",
+      "event_type": "face_match",
+      "severity": "low",
+      "timestamp": "2026-09-25T15:05:11.098338+00:00",
+      "evidence_sha256": "a4f70b11f4810067f7a09a49aa0cb9dbe3e4f378f523024f35e7db0ceb4465bd",
+      "registered_at": "2026-09-25T15:05:12.084514+00:00",
+      "previous_tip": "8a48f02f5b820baa69ba6975"
+    },
+    "443": {
+      "record_id": "7e91d44277aa7cfc428164e5",
+      "event_id": 443,
+      "camera_id": "device_webcam",
+      "event_type": "face_unknown",
+      "severity": "high",
+      "timestamp": "2026-09-25T15:05:13.828007+00:00",
+      "evidence_sha256": "ccf8001921d1aab8e5fce09c038c9c8a31c4aa89eed8d84e186e6159ccfc2ef9",
+      "registered_at": "2026-09-25T15:05:14.132224+00:00",
+      "previous_tip": "b66502f956f94c82ac4f923a"
+    },
+    "444": {
+      "record_id": "beb41b8fe80925552def82c0",
+      "event_id": 444,
+      "camera_id": "upload_feed",
+      "event_type": "weapon_detected",
+      "severity": "critical",
+      "timestamp": "2026-09-25T15:16:11.002679+00:00",
+      "evidence_sha256": "4dfc013dd8eb8ecc010bfc9c4b736fd4dc3abdeb33519beef2404d2761aa43be",
+      "registered_at": "2026-09-25T15:16:11.314458+00:00",
+      "previous_tip": "7e91d44277aa7cfc428164e5"
+    },
+    "445": {
+      "record_id": "1eb80fca9c40fa2c59124298",
+      "event_id": 445,
+      "camera_id": "upload_feed",
+      "event_type": "face_unknown",
+      "severity": "high",
+      "timestamp": "2026-09-25T15:16:11.018034+00:00",
+      "evidence_sha256": "06eb1351332802c3133c070ba1126c9a9d1fe17bfdafdb72700e437f0ecd80a2",
+      "registered_at": "2026-09-25T15:16:13.285990+00:00",
+      "previous_tip": "beb41b8fe80925552def82c0"
+    },
+    "446": {
+      "record_id": "b392dc3d6f659d51c25c0fb7",
+      "event_id": 446,
+      "camera_id": "upload_feed",
+      "event_type": "person_detected",
+      "severity": "medium",
+      "timestamp": "2026-09-25T15:16:13.261834+00:00",
+      "evidence_sha256": "100aadbe054f86a22bab35285003a946bee06c2d5688deb16b7dde8072c05052",
+      "registered_at": "2026-09-25T15:17:43.159850+00:00",
+      "previous_tip": "1eb80fca9c40fa2c59124298"
+    },
+    "447": {
+      "record_id": "07ce94ad7fc04e045622e352",
+      "event_id": 447,
+      "camera_id": "upload_feed",
+      "event_type": "repeated_zone_entry",
+      "severity": "medium",
+      "timestamp": "2026-09-25T15:17:43.132329+00:00",
+      "evidence_sha256": "ac724c6e0b3b3dd31cf0d712011871c589fa748f0fe03ffeca928eb1eed7a11b",
+      "registered_at": "2026-09-25T15:17:46.384070+00:00",
+      "previous_tip": "b392dc3d6f659d51c25c0fb7"
+    },
+    "448": {
+      "record_id": "33e144c711a59f49f96ca19e",
+      "event_id": 448,
+      "camera_id": "upload_feed",
+      "event_type": "weapon_detected",
+      "severity": "critical",
+      "timestamp": "2026-09-25T15:17:46.353301+00:00",
+      "evidence_sha256": "aa8861b5f852d8b827b8d3193343ac4bb54cabc65302c918a7be28d374a2ef75",
+      "registered_at": "2026-09-25T15:17:49.523768+00:00",
+      "previous_tip": "07ce94ad7fc04e045622e352"
+    },
+    "449": {
+      "record_id": "447441471417836f2ef03ea9",
+      "event_id": 449,
+      "camera_id": "upload_feed",
+      "event_type": "person_detected",
+      "severity": "medium",
+      "timestamp": "2026-09-25T15:17:49.495351+00:00",
+      "evidence_sha256": "157766e03404aa95b900869d24a1bcf8bb48c02057bef3aa5ea7adc9a5be9cf9",
+      "registered_at": "2026-09-25T15:19:50.037190+00:00",
+      "previous_tip": "33e144c711a59f49f96ca19e"
     }
   },
-  "chain_tip": "8a48f02f5b820baa69ba6975"
+  "chain_tip": "447441471417836f2ef03ea9"
 }
